@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { margin: 0; background: #F6F4EF; }
+a { color: #7A3DC8; }
+a:hover { color: #5B2A9A; }
