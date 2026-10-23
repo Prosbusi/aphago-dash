@@ -1,0 +1,55 @@
+-- Tradução inicial: padrão novo + valores reais encontrados no diagnóstico (set-out/2026)
+
+-- A lista de acesso (allowed_users) é mantida direto no banco, fora do repositório público.
+
+insert into public.channel_map (source, medium, canal, grupo) values
+  -- padrão novo
+  ('meta',        'paid-social', 'Meta Ads',             'pago'),
+  ('tiktok',      'paid-social', 'TikTok Ads',           'pago'),
+  ('pinterest',   'paid-social', 'Pinterest Ads',        'pago'),
+  ('google',      'cpc',         'Google Ads',           'pago'),
+  ('chatgpt',     'cpc',         'ChatGPT Ads',          'pago'),
+  ('email',       '*',           'E-mail',               'mensagem'),
+  ('whatsapp',    'grupo',       'WhatsApp grupo VIP',   'mensagem'),
+  ('whatsapp',    'individual',  'WhatsApp individual',  'mensagem'),
+  ('whatsapp',    '*',           'WhatsApp',             'mensagem'),
+  ('app',         'push',        'Push',                 'mensagem'),
+  ('instagram',   'social',      'Instagram orgânico',   'organico'),
+  ('tiktok',      'social',      'TikTok orgânico',      'organico'),
+  ('pinterest',   'social',      'Pinterest orgânico',   'organico'),
+  -- Meta no formato antigo (source = posicionamento)
+  ('meta',                    '*', 'Meta Ads', 'pago'),
+  ('instagram_feed',          '*', 'Meta Ads', 'pago'),
+  ('instagram_reels',         '*', 'Meta Ads', 'pago'),
+  ('instagram_stories',       '*', 'Meta Ads', 'pago'),
+  ('instagram_explore',       '*', 'Meta Ads', 'pago'),
+  ('igshopping',              '*', 'Meta Ads', 'pago'),
+  ('facebook_mobile_feed',    '*', 'Meta Ads', 'pago'),
+  ('facebook_mobile_reels',   '*', 'Meta Ads', 'pago'),
+  ('facebook_stories',        '*', 'Meta Ads', 'pago'),
+  ('facebook_instream_video', '*', 'Meta Ads', 'pago'),
+  ('facebook_desktop_feed',   '*', 'Meta Ads', 'pago'),
+  ('others',                  '*', 'Meta Ads', 'pago'),
+  ('{{placement}}',           '*', 'Meta Ads', 'pago'),
+  ('facebook',                '*', 'Meta Ads', 'pago'),
+  -- outros valores antigos
+  ('google',      'product_sync', 'Google Shopping orgânico', 'organico'),
+  ('google',      '*',            'Google (outros)',          'organico'),
+  ('instagram',   'linktree',     'Instagram bio',            'organico'),
+  ('instagram',   'dm',           'Instagram DM',             'organico'),
+  ('instagram',   '*',            'Instagram orgânico',       'organico'),
+  ('ig',          '*',            'Instagram orgânico',       'organico'),
+  ('shopify_email', '*',          'E-mail',                   'mensagem'),
+  ('foxappy',     '*',            'Push',                     'mensagem'),
+  ('chatgpt.com', '*',            'ChatGPT orgânico',         'organico'),
+  -- sem UTM: classificado pelo site de origem
+  ('ref:direto',        '*', 'Direto',                 'direto'),
+  ('ref:aphago.com.br', '*', 'Direto',                 'direto'),
+  ('ref:google.com',    '*', 'Google orgânico',        'sem utm'),
+  ('ref:google.com.br', '*', 'Google orgânico',        'sem utm'),
+  ('ref:instagram.com', '*', 'Instagram sem UTM',      'sem utm'),
+  ('ref:facebook.com',  '*', 'Facebook sem UTM',       'sem utm'),
+  ('ref:linktr.ee',     '*', 'Instagram bio',          'sem utm'),
+  ('ref:youtube.com',   '*', 'YouTube orgânico',       'sem utm'),
+  ('ref:chatgpt.com',   '*', 'ChatGPT orgânico',       'sem utm'),
+  ('ref:bing.com',      '*', 'Bing orgânico',          'sem utm');
