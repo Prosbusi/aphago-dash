@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { fetchAll, supabase } from "./supabase";
 import type { Period } from "./period";
 
+export type StoreId = "aphago" | "abrasso";
+
 export type OrderRow = {
+  store: StoreId;
   order_id: string;
   dia: string;
   total: number;
@@ -18,6 +21,7 @@ export type OrderRow = {
 };
 
 export type ItemRow = {
+  store: StoreId;
   order_id: string;
   dia: string;
   product_id: string | null;
@@ -27,26 +31,28 @@ export type ItemRow = {
   canal_ultimo: string;
 };
 
-type DashData = { orders: OrderRow[]; prevOrders: OrderRow[]; items: ItemRow[] };
+export type DashData = { orders: OrderRow[]; prevOrders: OrderRow[]; items: ItemRow[] };
 
 const cache = new Map<string, Promise<DashData>>();
 
-async function load(p: Period): Promise<DashData> {
+async function load(p: Period, store: StoreId | null): Promise<DashData> {
   const cols =
-    "order_id,dia,total,cliente_novo,canal_ultimo,grupo_ultimo,chave_ultimo,canal_primeiro,grupo_primeiro,days_to_conversion,visits_count,acao_ultima";
+    "store,order_id,dia,total,cliente_novo,canal_ultimo,grupo_ultimo,chave_ultimo,canal_primeiro,grupo_primeiro,days_to_conversion,visits_count,acao_ultima";
   const [all, items] = await Promise.all([
-    fetchAll<OrderRow>((from, to) =>
-      supabase.from("v_orders").select(cols).gte("dia", p.prevStart).lte("dia", p.end).order("order_id").range(from, to),
-    ),
-    fetchAll<ItemRow>((from, to) =>
-      supabase
+    fetchAll<OrderRow>((from, to) => {
+      let q = supabase.from("v_orders").select(cols).gte("dia", p.prevStart).lte("dia", p.end);
+      if (store) q = q.eq("store", store);
+      return q.order("order_id").range(from, to);
+    }),
+    fetchAll<ItemRow>((from, to) => {
+      let q = supabase
         .from("v_order_items")
-        .select("order_id,dia,product_id,product_title,quantity,amount,canal_ultimo")
+        .select("store,order_id,dia,product_id,product_title,quantity,amount,canal_ultimo")
         .gte("dia", p.start)
-        .lte("dia", p.end)
-        .order("line_id")
-        .range(from, to),
-    ),
+        .lte("dia", p.end);
+      if (store) q = q.eq("store", store);
+      return q.order("line_id").range(from, to);
+    }),
   ]);
   const norm = (o: OrderRow) => ({ ...o, total: Number(o.total) });
   return {
@@ -56,13 +62,14 @@ async function load(p: Period): Promise<DashData> {
   };
 }
 
-export function useDashData(p: Period) {
-  const key = `${p.prevStart}|${p.end}`;
+/** Dados do período; `store` null = as duas lojas juntas. */
+export function useDashData(p: Period, store: StoreId | null) {
+  const key = `${store ?? "todas"}|${p.prevStart}|${p.end}`;
   const [state, setState] = useState<{ data?: DashData; error?: string; loading: boolean }>({ loading: true });
   useEffect(() => {
     let alive = true;
-    setState((s) => ({ ...s, loading: true, error: undefined }));
-    if (!cache.has(key)) cache.set(key, load(p));
+    setState({ loading: true });
+    if (!cache.has(key)) cache.set(key, load(p, store));
     cache
       .get(key)!
       .then((data) => alive && setState({ data, loading: false }))
@@ -95,4 +102,23 @@ export function useLastSync() {
       .then(({ data }) => setAt(data?.[0]?.ran_at ?? null));
   }, []);
   return at;
+}
+
+export type StoreInfo = { store: StoreId; nome: string; site_url: string | null };
+
+let storesPromise: Promise<StoreInfo[]> | null = null;
+export function useStores() {
+  const [stores, setStores] = useState<StoreInfo[] | null>(null);
+  useEffect(() => {
+    if (!storesPromise) {
+      storesPromise = Promise.resolve(
+        supabase.from("stores").select("store,nome,site_url").order("store", { ascending: false }),
+      ).then(({ data, error }) => {
+        if (error) { storesPromise = null; throw new Error(error.message); }
+        return (data ?? []) as StoreInfo[];
+      });
+    }
+    storesPromise.then(setStores).catch(() => setStores([]));
+  }, []);
+  return stores;
 }

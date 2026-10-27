@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { usePeriod } from "../period-context";
+import { useStoreParam, nomeLoja } from "../lib/store";
 import { useDashData } from "../lib/data";
 import { byProduto } from "../lib/agg";
 import { diaMes, money, num } from "../lib/format";
@@ -8,7 +9,8 @@ import { PeriodPicker } from "../components/PeriodPicker";
 
 export function Produtos() {
   const { period } = usePeriod();
-  const { data, error, loading } = useDashData(period);
+  const store = useStoreParam();
+  const { data, error, loading } = useDashData(period, store);
   const [busca, setBusca] = useState("");
   const todos = data ? byProduto(data.items) : [];
   const q = busca.trim().toLowerCase();
@@ -17,7 +19,7 @@ export function Produtos() {
 
   return (
     <>
-      <PageTitle title="Produtos" sub={`${diaMes(period.start)} a ${diaMes(period.end)}`} right={<PeriodPicker />} />
+      <PageTitle title={`Produtos · ${nomeLoja(store)}`} sub={`${diaMes(period.start)} a ${diaMes(period.end)}`} right={<PeriodPicker />} />
       {error && <ErrorBox message={error} />}
       {loading && !data && <Loading />}
       {data && (

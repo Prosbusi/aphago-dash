@@ -1,4 +1,5 @@
 import { usePeriod } from "../period-context";
+import { useStoreParam, nomeLoja } from "../lib/store";
 import { useDashData } from "../lib/data";
 import { caminhos, faixasVisitas, media, papeis } from "../lib/agg";
 import { dec, diaMes, num, pct } from "../lib/format";
@@ -7,12 +8,13 @@ import { PeriodPicker } from "../components/PeriodPicker";
 
 export function Jornada() {
   const { period } = usePeriod();
-  const { data, error, loading } = useDashData(period);
+  const store = useStoreParam();
+  const { data, error, loading } = useDashData(period, store);
 
   return (
     <>
       <PageTitle
-        title="Jornada"
+        title={`Jornada · ${nomeLoja(store)}`}
         sub={`Como o cliente chega até a compra · ${diaMes(period.start)} a ${diaMes(period.end)}${data ? ` · ${num(data.orders.length)} pedidos` : ""}`}
         right={<PeriodPicker />}
       />

@@ -1,6 +1,6 @@
 # aphago-dash
 
-Dashboard de vendas, canais e jornada do cliente da Aphago.
+Dashboard de vendas, canais e jornada do cliente das lojas Aphago e Abrasso.
 
 ## Arquitetura
 
@@ -35,6 +35,14 @@ Para canais em que a UTM é colocada à mão: WhatsApp, e-mail, push e posts org
 - `utm_content` = a peça ou a posição do link; `utm_term` = o público (opcional).
 - Os links salvos ficam em `utm_links` para o time reaproveitar.
 
+## Lojas
+
+- `stores` lista as lojas. Todas as tabelas brutas, ações e links têm a coluna `store`.
+- A coleta roda uma vez por hora para cada loja (`{"store":"aphago"}`, `{"store":"abrasso"}`) e o catálogo a cada 6 horas (`"mode":"products"`).
+- O site tem a área **Geral** (resumo das duas lojas, Links UTM, Ajustes) e uma área por loja com as análises completas.
+- A tradução de canais (`channel_map`) é compartilhada; ações (`action_map`) e apelidos (`campaign_alias`) são por loja.
+
 ## Segredos
 
-Nenhuma chave fica neste repositório. Tokens das plataformas ficam nos segredos das Edge Functions do Supabase.
+Nenhuma chave fica neste repositório. Tokens das plataformas ficam nos segredos das Edge Functions do Supabase:
+`SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` / `SHOPIFY_SHOP` (Aphago) e os mesmos com prefixo `ABRASSO_` (Abrasso).

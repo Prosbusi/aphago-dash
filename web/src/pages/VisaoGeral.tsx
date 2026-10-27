@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { usePeriod } from "../period-context";
+import { useStoreParam, nomeLoja } from "../lib/store";
 import { useDashData } from "../lib/data";
 import { byCanal, byDay, byProduto, kpis } from "../lib/agg";
 import { listDays } from "../lib/period";
@@ -9,23 +10,24 @@ import { PeriodPicker } from "../components/PeriodPicker";
 
 export function VisaoGeral() {
   const { period } = usePeriod();
-  const { data, error, loading } = useDashData(period);
+  const store = useStoreParam();
+  const { data, error, loading } = useDashData(period, store);
 
   return (
     <>
       <PageTitle
-        title="Visão geral"
+        title={`Visão geral · ${nomeLoja(store)}`}
         sub={`${diaMes(period.start)} a ${diaMes(period.end)} · comparado ao período anterior de mesmo tamanho`}
         right={<PeriodPicker />}
       />
       {error && <ErrorBox message={error} />}
       {loading && !data && <Loading />}
-      {data && <Conteudo data={data} start={period.start} end={period.end} />}
+      {data && <Conteudo data={data} start={period.start} end={period.end} store={store} />}
     </>
   );
 }
 
-function Conteudo({ data, start, end }: { data: NonNullable<ReturnType<typeof useDashData>["data"]>; start: string; end: string }) {
+function Conteudo({ data, start, end, store }: { data: NonNullable<ReturnType<typeof useDashData>["data"]>; start: string; end: string; store: string }) {
   const k = kpis(data.orders);
   const kp = kpis(data.prevOrders);
   const dias = byDay(data.orders, listDays(start, end));
@@ -85,7 +87,7 @@ function Conteudo({ data, start, end }: { data: NonNullable<ReturnType<typeof us
         <Card
           className="flex-[999_1_560px]"
           title={<>Por canal <span className="text-[13px] font-medium text-muted">· último clique</span></>}
-          extra={<Link to="/canais" className="font-semibold">Ver todos os canais</Link>}
+          extra={<Link to={`/${store}/canais`} className="font-semibold">Ver todos os canais</Link>}
         >
           {canais.length === 0 ? (
             <Empty>Nenhum pedido no período.</Empty>
@@ -127,7 +129,7 @@ function Conteudo({ data, start, end }: { data: NonNullable<ReturnType<typeof us
           )}
         </Card>
 
-        <Card className="flex-[1_1_380px]" title="Produtos que mais faturam" extra={<Link to="/produtos" className="font-semibold">Ver todos</Link>}>
+        <Card className="flex-[1_1_380px]" title="Produtos que mais faturam" extra={<Link to={`/${store}/produtos`} className="font-semibold">Ver todos</Link>}>
           {produtos.length === 0 ? (
             <Empty>Nenhum produto vendido no período.</Empty>
           ) : (

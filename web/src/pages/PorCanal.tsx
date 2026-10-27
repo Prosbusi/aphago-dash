@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { usePeriod } from "../period-context";
+import { useStoreParam, nomeLoja } from "../lib/store";
 import { useDashData } from "../lib/data";
 import { byCanal, byGrupo } from "../lib/agg";
 import { delta, diaMes, money, money2, num, pct } from "../lib/format";
@@ -17,7 +18,8 @@ const GRUPO_NOME: Record<string, string> = {
 
 export function PorCanal() {
   const { period } = usePeriod();
-  const { data, error, loading } = useDashData(period);
+  const store = useStoreParam();
+  const { data, error, loading } = useDashData(period, store);
   const [toque, setToque] = useState<"ultimo" | "primeiro">("ultimo");
 
   const canais = data ? byCanal(data.orders, toque) : [];
@@ -27,7 +29,7 @@ export function PorCanal() {
 
   return (
     <>
-      <PageTitle title="Por canal" sub={`${diaMes(period.start)} a ${diaMes(period.end)}`} right={<PeriodPicker />} />
+      <PageTitle title={`Por canal · ${nomeLoja(store)}`} sub={`${diaMes(period.start)} a ${diaMes(period.end)}`} right={<PeriodPicker />} />
       {error && <ErrorBox message={error} />}
       {loading && !data && <Loading />}
       {data && (

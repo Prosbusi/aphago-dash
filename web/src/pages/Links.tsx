@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { fetchAll, supabase } from "../lib/supabase";
-import { clearDataCache } from "../lib/data";
+import { clearDataCache, useStores, type StoreId } from "../lib/data";
+import { LOJAS, nomeLoja } from "../lib/store";
 import { CANAIS, montarCampanha, montarLink, normalizarDestino, destinoLimpo, slug } from "../lib/utm";
 import { Card, Empty, ErrorBox, Loading, PageTitle } from "../components/ui";
 
-type Acao = { acao: string; nome: string; tipo: string | null };
+type Acao = { store: StoreId; acao: string; nome: string; tipo: string | null };
+type Produto = { product_id: string; title: string; online_url: string | null; handle: string | null };
 type LinkSalvo = {
   id: number;
+  store: StoreId;
   created_at: string;
   created_by: string;
   canal: string;
@@ -26,7 +29,7 @@ const TIPOS = [
   { v: "relacionamento", nome: "Relacionamento" },
 ];
 
-const DESTINO_PADRAO = "https://aphago.com.br/";
+const SITE_PADRAO: Record<StoreId, string> = { aphago: "https://www.aphago.com.br", abrasso: "" };
 const quando = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 async function copiar(texto: string) {
@@ -52,8 +55,13 @@ export function Links() {
   const [links, setLinks] = useState<LinkSalvo[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
+  const stores = useStores();
+  const [loja, setLoja] = useState<StoreId>("aphago");
+  const siteDe = (id: StoreId) => (stores?.find((x) => x.store === id)?.site_url ?? SITE_PADRAO[id]).replace(/\/$/, "");
   const [canalId, setCanalId] = useState(CANAIS[0].id);
-  const [destino, setDestino] = useState(DESTINO_PADRAO);
+  const [destino, setDestino] = useState(`${SITE_PADRAO.aphago}/`);
+  const [buscaProduto, setBuscaProduto] = useState("");
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [acao, setAcao] = useState("");
   const [detalhe, setDetalhe] = useState("");
   const [content, setContent] = useState("");
@@ -70,8 +78,8 @@ export function Links() {
   const carregar = async () => {
     try {
       const [a, l] = await Promise.all([
-        fetchAll<Acao>((f, t) => supabase.from("action_map").select("acao,nome,tipo").order("acao").range(f, t)),
-        supabase.from("utm_links").select("id,created_at,created_by,canal,destino,campaign,content,url,nota").order("created_at", { ascending: false }).limit(200),
+        fetchAll<Acao>((f, t) => supabase.from("action_map").select("store,acao,nome,tipo").order("acao").range(f, t)),
+        supabase.from("utm_links").select("id,store,created_at,created_by,canal,destino,campaign,content,url,nota").order("created_at", { ascending: false }).limit(200),
       ]);
       if (l.error) throw new Error(l.error.message);
       setAcoes(a);
@@ -82,12 +90,34 @@ export function Links() {
   };
   useEffect(() => { carregar(); }, []);
 
+  // ao trocar de loja, o destino passa para a home da loja escolhida
+  useEffect(() => {
+    const site = siteDe(loja);
+    if (!site) return;
+    const homes = LOJAS.map((l) => `${siteDe(l.id)}/`);
+    setDestino((d) => (!d.trim() || homes.includes(d) ? `${site}/` : d));
+  }, [loja, stores]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // busca de produto da loja para preencher o destino
+  useEffect(() => {
+    const q = buscaProduto.trim();
+    if (q.length < 2) { setProdutos([]); return; }
+    const t = window.setTimeout(async () => {
+      const { data } = await supabase.from("products").select("product_id,title,online_url,handle").eq("store", loja).eq("status", "ACTIVE").ilike("title", `%${q}%`).order("title").limit(8);
+      setProdutos((data ?? []) as Produto[]);
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [buscaProduto, loja]);
+
+  const acoesLoja = (acoes ?? []).filter((a) => a.store === loja);
+
   const canal = CANAIS.find((c) => c.id === canalId)!;
   const acaoSlug = slug(acao);
-  const acaoExistente = acoes?.find((a) => a.acao === acaoSlug);
+  const acaoExistente = acoesLoja.find((a) => a.acao === acaoSlug);
   const acaoNova = !!acaoSlug && acoes !== null && !acaoExistente;
   const url = normalizarDestino(destino);
-  const foraDaLoja = url && !/(^|\.)aphago\.com\.br$/.test(url.hostname);
+  const hostLoja = (() => { try { return new URL(siteDe(loja)).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+  const foraDaLoja = !!url && !!hostLoja && url.hostname.replace(/^www\./, "") !== hostLoja && !url.hostname.endsWith(".myshopify.com");
   const campaign = acaoSlug ? montarCampanha(acao, detalhe) : "";
   const contentSlug = slug(content);
   const termSlug = slug(term);
@@ -104,11 +134,12 @@ export function Links() {
     setSalvando(true);
     setErro(null);
     if (acaoNova) {
-      const { error } = await supabase.from("action_map").insert({ acao: acaoSlug, nome: novaNome.trim(), tipo: novaTipo });
+      const { error } = await supabase.from("action_map").insert({ store: loja, acao: acaoSlug, nome: novaNome.trim(), tipo: novaTipo });
       if (error && error.code !== "23505") { setSalvando(false); setErro(error.message); return; }
       clearDataCache();
     }
     const { error } = await supabase.from("utm_links").insert({
+      store: loja,
       canal: canal.nome,
       destino: destinoLimpo(url),
       source: canal.source,
@@ -136,6 +167,7 @@ export function Links() {
   const reaproveitar = (l: LinkSalvo) => {
     const c = CANAIS.find((x) => x.nome === l.canal);
     if (c) setCanalId(c.id);
+    setLoja(l.store);
     setDestino(l.destino);
     const [a, ...resto] = l.campaign.split("_");
     setAcao(a);
@@ -156,7 +188,7 @@ export function Links() {
     () => (links ?? []).filter((l) => !q || `${l.canal} ${l.campaign} ${l.content ?? ""} ${l.destino} ${l.nota ?? ""} ${l.created_by}`.toLowerCase().includes(q)),
     [links, q],
   );
-  const nomeAcao = new Map((acoes ?? []).map((a) => [a.acao, a.nome]));
+  const nomeAcao = new Map((acoes ?? []).map((a) => [`${a.store}|${a.acao}`, a.nome]));
 
   return (
     <>
@@ -166,6 +198,23 @@ export function Links() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <Card title="Novo link">
           <form className="mt-4 flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); salvarECopiar(); }}>
+            <fieldset className="m-0 border-0 p-0">
+              <legend className="mb-2 p-0 text-[13px] font-semibold">Loja</legend>
+              <div className="flex flex-wrap gap-2">
+                {LOJAS.map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    aria-pressed={l.id === loja}
+                    onClick={() => { setLoja(l.id); setAcao(""); setBuscaProduto(""); }}
+                    className={`min-h-10 rounded-lg border px-3.5 text-[13px] font-semibold ${l.id === loja ? "border-ink bg-ink text-white" : "border-line bg-white text-body hover:bg-ground"}`}
+                  >
+                    {l.nome}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
             <fieldset className="m-0 border-0 p-0">
               <legend className="mb-2 p-0 text-[13px] font-semibold">Canal</legend>
               <div className="flex flex-wrap gap-2">
@@ -183,16 +232,39 @@ export function Links() {
               </div>
             </fieldset>
 
+            <Campo label={`Buscar produto da ${nomeLoja(loja)} (opcional)`} hint="Escolha um produto para usar a página dele como destino.">
+              <input type="search" value={buscaProduto} onChange={(e) => setBuscaProduto(e.target.value)} placeholder="ex.: aquarela" className="min-h-10 w-full rounded-lg border border-line px-3" />
+              {produtos.length > 0 && (
+                <ul className="m-0 mt-1 list-none rounded-lg border border-line bg-white p-1">
+                  {produtos.map((p) => {
+                    const href = p.online_url ?? (p.handle && siteDe(loja) ? `${siteDe(loja)}/products/${p.handle}` : null);
+                    return (
+                      <li key={p.product_id}>
+                        <button
+                          type="button"
+                          disabled={!href}
+                          onClick={() => { if (href) { setDestino(href); setBuscaProduto(""); setProdutos([]); } }}
+                          className="w-full rounded-md px-2.5 py-2 text-left text-[13px] font-semibold hover:bg-ground disabled:text-muted"
+                        >
+                          {p.title}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Campo>
+
             <Campo label="Página de destino" hint="Cole o link do produto, da coleção ou da home. UTMs antigas no link são trocadas.">
               <input value={destino} onChange={(e) => setDestino(e.target.value)} inputMode="url" className="min-h-10 w-full rounded-lg border border-line px-3" />
               {destino.trim() && !url && <span className="text-xs font-semibold text-ruim">Esse endereço não parece um link válido.</span>}
-              {foraDaLoja && <span className="text-xs font-semibold text-[#9A4A1C]">Atenção: esse link não é da aphago.com.br, a visita não vai aparecer no dashboard.</span>}
+              {foraDaLoja && <span className="text-xs font-semibold text-[#9A4A1C]">Atenção: esse link não é do site da {nomeLoja(loja)} ({hostLoja}), a visita não vai aparecer no dashboard dela.</span>}
             </Campo>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Campo label="Ação" hint="A campanha ou coleção. É por ela que o dashboard agrupa os resultados.">
                 <input required list="acoes" value={acao} onChange={(e) => setAcao(e.target.value)} placeholder="ex.: black-friday" className="min-h-10 w-full rounded-lg border border-line px-3" />
-                <datalist id="acoes">{(acoes ?? []).map((a) => <option key={a.acao} value={a.acao}>{a.nome}</option>)}</datalist>
+                <datalist id="acoes">{acoesLoja.map((a) => <option key={a.acao} value={a.acao}>{a.nome}</option>)}</datalist>
                 {acaoExistente && <span className="text-xs font-semibold text-bom">{acaoExistente.nome}</span>}
               </Campo>
               <Campo label="Detalhe (opcional)" hint={`O envio ou a etapa, ex.: ${canal.exemplo}`}>
@@ -246,7 +318,7 @@ export function Links() {
                 <Param k="utm_term" v={termSlug} />
               </dl>
               <p className="mt-3 text-xs text-muted">
-                No dashboard: <strong className="text-body">{canal.nome}</strong> · ação{" "}
+                No dashboard da <strong className="text-body">{nomeLoja(loja)}</strong>: <strong className="text-body">{canal.nome}</strong> · ação{" "}
                 <strong className="text-body">{acaoExistente?.nome ?? (novaNome.trim() || acaoSlug)}</strong>
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
@@ -283,7 +355,7 @@ export function Links() {
                 <li key={l.id} className="flex flex-wrap items-start gap-x-4 gap-y-2 border-t border-soft py-3 text-sm">
                   <div className="min-w-[220px] flex-1">
                     <div className="font-semibold">
-                      {l.canal} · {nomeAcao.get(acaoL) ?? acaoL}
+                      <span className="mr-1.5 rounded-full border border-line px-2 py-px text-[11px] font-bold text-body">{nomeLoja(l.store)}</span>{l.canal} · {nomeAcao.get(`${l.store}|${acaoL}`) ?? acaoL}
                     </div>
                     <div className="mt-0.5 break-all text-[13px] text-muted">
                       <code>{l.campaign}</code>{l.content && <> · <code>{l.content}</code></>} · {l.destino.replace(/^https?:\/\/(www\.)?/, "")}
