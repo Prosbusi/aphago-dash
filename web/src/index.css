@@ -3,5 +3,5 @@
 @tailwind utilities;
 
 body { margin: 0; background: #F6F4EF; }
-a { color: #7A3DC8; }
-a:hover { color: #5B2A9A; }
+a { color: rgb(var(--accent-texto, 122 61 200)); }
+a:hover { color: rgb(var(--accent-escuro, 91 42 154)); }

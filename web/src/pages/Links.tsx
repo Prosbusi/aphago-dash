@@ -273,7 +273,7 @@ export function Links() {
             </div>
 
             {acaoNova && (
-              <div className="rounded-xl border border-roxo-claro bg-[#FAF6FE] p-4">
+              <div className="rounded-xl border border-roxo-claro bg-roxo-claro/20 p-4">
                 <p className="m-0 text-[13px] font-bold">Ação nova: <code>{acaoSlug}</code></p>
                 <p className="mb-3 mt-1 text-xs text-muted">Ela entra na lista de ações do dashboard quando você salvar o link. Confira se não existe uma parecida antes.</p>
                 <div className="grid gap-3 sm:grid-cols-2">

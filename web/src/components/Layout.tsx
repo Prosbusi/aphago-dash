@@ -3,6 +3,8 @@ import { useAuth } from "../auth";
 import { useLastSync } from "../lib/data";
 import { LOJAS } from "../lib/store";
 import { supabase } from "../lib/supabase";
+import { Marca } from "./Logo";
+import type { CSSProperties } from "react";
 
 type Item = { to: string; label: string; end?: boolean; fase?: string };
 
@@ -23,6 +25,13 @@ const loja = (id: string): Item[] => [
 
 const AREAS = [{ id: "geral", nome: "Geral" }, ...LOJAS.map((l) => ({ id: l.id, nome: l.nome }))];
 
+/** Cor de destaque por área: roxo na Aphago e no Geral, vinho na Abrasso. */
+const ACCENT: Record<string, CSSProperties> = {
+  geral: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
+  aphago: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
+  abrasso: { "--accent": "157 34 53", "--accent-claro": "231 200 205", "--accent-texto": "157 34 53", "--accent-escuro": "118 24 39" } as CSSProperties,
+};
+
 function ago(iso: string | null) {
   if (!iso) return "Sem coleta ainda";
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -40,13 +49,10 @@ export function Layout() {
   const inicial = (session.user.email ?? "?").slice(0, 1).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-ground font-sans text-ink tabular-nums">
+    <div className="min-h-screen bg-ground font-sans text-ink tabular-nums" style={ACCENT[area] ?? ACCENT.geral}>
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-3.5 sm:px-8">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink text-[15px] font-extrabold text-white">A</div>
-            <div className="text-[17px] font-extrabold tracking-tight">Aphago Dash</div>
-          </div>
+          <Marca />
           <nav aria-label="Lojas" className="flex gap-1 rounded-[10px] border border-line bg-ground p-1">
             {AREAS.map((a) => (
               <NavLink

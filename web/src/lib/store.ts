@@ -3,7 +3,7 @@ import type { StoreId } from "./data";
 
 export const LOJAS: { id: StoreId; nome: string; cor: string }[] = [
   { id: "aphago", nome: "Aphago", cor: "#A065E7" },
-  { id: "abrasso", nome: "Abrasso", cor: "#E39A6F" },
+  { id: "abrasso", nome: "Abrasso", cor: "#9D2235" },
 ];
 
 export const nomeLoja = (id: string) => LOJAS.find((l) => l.id === id)?.nome ?? id;
