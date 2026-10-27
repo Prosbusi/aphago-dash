@@ -26,6 +26,15 @@ Migrações em `supabase/migrations`, aplicadas em ordem.
 - Ação = texto antes do primeiro `_` do `utm_campaign`, normalizado (minúsculo, `+` e espaços repetidos viram um espaço). Nomes fora do padrão são mapeados em `campaign_alias`.
 - O que não casa aparece como **Não classificado**.
 
+## Links UTM (tela Links UTM)
+
+Para canais em que a UTM é colocada à mão: WhatsApp, e-mail, push e posts orgânicos. Anúncios preenchem as UTMs pelo modelo de URL da plataforma.
+
+- `utm_source` / `utm_medium` vêm do canal escolhido (mesmos valores de `channel_map`).
+- `utm_campaign` = `<ação>_<detalhe>`, minúsculo, sem acento, `-` no lugar de espaço. A ação nova entra em `action_map` ao salvar.
+- `utm_content` = a peça ou a posição do link; `utm_term` = o público (opcional).
+- Os links salvos ficam em `utm_links` para o time reaproveitar.
+
 ## Segredos
 
 Nenhuma chave fica neste repositório. Tokens das plataformas ficam nos segredos das Edge Functions do Supabase.

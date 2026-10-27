@@ -11,6 +11,7 @@ import { Produtos } from "./pages/Produtos";
 import { Jornada } from "./pages/Jornada";
 import { Ajustes } from "./pages/Ajustes";
 import { EmBreve } from "./pages/EmBreve";
+import { Links } from "./pages/Links";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -25,6 +26,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="jornada" element={<Jornada />} />
               <Route path="retorno" element={<EmBreve titulo="Retorno" texto="Investimento, ROAS e custo por compra por canal, campanha e anúncio. Entra quando conectarmos Meta Ads e Google Ads." />} />
               <Route path="lancamentos" element={<EmBreve titulo="Lançamentos" texto="O placar de cada coleção desde o lançamento: D+1, D+3, D+7, faturamento, investimento e ROAS." />} />
+              <Route path="links" element={<Links />} />
               <Route path="ajustes" element={<Ajustes />} />
               <Route path="*" element={<VisaoGeral />} />
             </Route>

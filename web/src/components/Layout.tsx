@@ -10,6 +10,7 @@ const NAV = [
   { to: "/jornada", label: "Jornada" },
   { to: "/retorno", label: "Retorno", fase: "fase 2" },
   { to: "/lancamentos", label: "Lançamentos", fase: "fase 2" },
+  { to: "/links", label: "Links UTM" },
   { to: "/ajustes", label: "Ajustes" },
 ];
 
