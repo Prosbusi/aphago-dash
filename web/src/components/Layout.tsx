@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth";
-import { useLastSync } from "../lib/data";
+import { useLastSync, useRefresh } from "../lib/data";
 import { LOJAS } from "../lib/store";
 import { supabase } from "../lib/supabase";
 import { Marca } from "./Logo";
@@ -43,6 +43,7 @@ function ago(iso: string | null) {
 export function Layout() {
   const { session } = useAuth();
   const last = useLastSync();
+  const refresh = useRefresh();
   const { pathname } = useLocation();
   const area = pathname.split("/")[1] || "geral";
   const nav = area === "geral" ? GERAL : loja(area);
@@ -67,7 +68,22 @@ export function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-muted">{ago(last)}</span>
+            <span className="text-xs text-muted" aria-live="polite">
+              {refresh.state === "running" ? "Buscando dados novos…" : refresh.state === "recent" ? "Atualizado há instantes" : refresh.state === "error" ? "Não deu para atualizar" : ago(last)}
+            </span>
+            <button
+              type="button"
+              onClick={refresh.run}
+              disabled={refresh.state === "running"}
+              title="Buscar agora os pedidos novos das lojas"
+              className="flex min-h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] font-semibold text-body hover:bg-ground disabled:opacity-60"
+            >
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={refresh.state === "running" ? "animate-spin" : ""}>
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+              Atualizar
+            </button>
             <button
               type="button"
               title={`${session.user.email} · clique para sair`}

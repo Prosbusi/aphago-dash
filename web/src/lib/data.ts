@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { fetchAll, supabase } from "./supabase";
 import type { Period } from "./period";
 
@@ -35,6 +35,13 @@ export type DashData = { orders: OrderRow[]; prevOrders: OrderRow[]; items: Item
 
 const cache = new Map<string, Promise<DashData>>();
 
+// versão dos dados: sobe quando alguém pede "Atualizar agora", e as telas recarregam
+let version = 0;
+const subs = new Set<() => void>();
+function subscribe(f: () => void) { subs.add(f); return () => { subs.delete(f); }; }
+export function useDataVersion() { return useSyncExternalStore(subscribe, () => version); }
+export function bumpData() { cache.clear(); version += 1; subs.forEach((f) => f()); }
+
 async function load(p: Period, store: StoreId | null): Promise<DashData> {
   const cols =
     "store,order_id,dia,total,cliente_novo,canal_ultimo,grupo_ultimo,chave_ultimo,canal_primeiro,grupo_primeiro,days_to_conversion,visits_count,acao_ultima";
@@ -64,7 +71,8 @@ async function load(p: Period, store: StoreId | null): Promise<DashData> {
 
 /** Dados do período; `store` null = as duas lojas juntas. */
 export function useDashData(p: Period, store: StoreId | null) {
-  const key = `${store ?? "todas"}|${p.prevStart}|${p.end}`;
+  const v = useDataVersion();
+  const key = `${store ?? "todas"}|${p.prevStart}|${p.end}|${v}`;
   const [state, setState] = useState<{ data?: DashData; error?: string; loading: boolean }>({ loading: true });
   useEffect(() => {
     let alive = true;
@@ -92,6 +100,7 @@ export function clearDataCache() {
 /** Última execução da coleta, para o "Atualizado há…" */
 export function useLastSync() {
   const [at, setAt] = useState<string | null>(null);
+  const v = useDataVersion();
   useEffect(() => {
     supabase
       .from("sync_log")
@@ -100,8 +109,33 @@ export function useLastSync() {
       .order("ran_at", { ascending: false })
       .limit(1)
       .then(({ data }) => setAt(data?.[0]?.ran_at ?? null));
-  }, []);
+  }, [v]);
   return at;
+}
+
+export type RefreshState = "idle" | "running" | "recent" | "error";
+
+/** "Atualizar agora": pede uma coleta imediata das lojas e recarrega as telas quando ela termina. */
+export function useRefresh() {
+  const [state, setState] = useState<RefreshState>("idle");
+  const run = useCallback(async () => {
+    setState("running");
+    const { data, error } = await supabase.rpc("request_sync");
+    if (error) { setState("error"); return; }
+    const res = data as { status: string; pedido_em: string };
+    if (res.status === "recente") { setState("recent"); window.setTimeout(() => setState("idle"), 4000); return; }
+    const desde = res.pedido_em;
+    const lojas = (await supabase.from("stores").select("store")).data?.length ?? 2;
+    const fim = Date.now() + 150_000;
+    while (Date.now() < fim) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const { data: log } = await supabase.from("sync_log").select("source").like("source", "shopify:%").gte("ran_at", desde);
+      if ((log?.length ?? 0) >= lojas) break;
+    }
+    bumpData();
+    setState("idle");
+  }, []);
+  return { state, run };
 }
 
 export type StoreInfo = { store: StoreId; nome: string; site_url: string | null };
