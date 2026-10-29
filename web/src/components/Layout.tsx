@@ -19,7 +19,7 @@ const loja = (id: string): Item[] => [
   { to: `/${id}/canais`, label: "Por canal" },
   { to: `/${id}/produtos`, label: "Produtos" },
   { to: `/${id}/jornada`, label: "Jornada" },
-  { to: `/${id}/retorno`, label: "Retorno", fase: "fase 2" },
+  { to: `/${id}/retorno`, label: "Retorno" },
   { to: `/${id}/lancamentos`, label: "Lançamentos", fase: "fase 2" },
 ];
 

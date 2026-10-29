@@ -13,6 +13,7 @@ import { Jornada } from "./pages/Jornada";
 import { Ajustes } from "./pages/Ajustes";
 import { EmBreve } from "./pages/EmBreve";
 import { Links } from "./pages/Links";
+import { Retorno } from "./pages/Retorno";
 import { LOJAS } from "./lib/store";
 
 /** Só deixa passar /aphago/... e /abrasso/...; o resto volta para o resumo. */
@@ -39,10 +40,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path=":store/canais" element={<LojaValida><PorCanal /></LojaValida>} />
               <Route path=":store/produtos" element={<LojaValida><Produtos /></LojaValida>} />
               <Route path=":store/jornada" element={<LojaValida><Jornada /></LojaValida>} />
-              <Route
-                path=":store/retorno"
-                element={<LojaValida><EmBreve titulo="Retorno" texto="Investimento, ROAS e custo por compra por canal, campanha e anúncio. Entra quando conectarmos Meta Ads e Google Ads." /></LojaValida>}
-              />
+              <Route path=":store/retorno" element={<LojaValida><Retorno /></LojaValida>} />
               <Route
                 path=":store/lancamentos"
                 element={<LojaValida><EmBreve titulo="Lançamentos" texto="O placar de cada coleção desde o lançamento: D+1, D+3, D+7, faturamento, investimento e ROAS." /></LojaValida>}
