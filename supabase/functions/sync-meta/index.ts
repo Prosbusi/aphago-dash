@@ -1,8 +1,10 @@
 // Coleta do investimento do Meta Ads -> ad_spend (platform = 'meta').
 // Corpo: { "store": "aphago" | "abrasso", "mode": "incremental" | "backfill" | "contas", "since"?: "2026-08-01", "restart"?: true }
 // incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, em janelas de 7 dias, guardando o cursor.
-// contas: lista as contas de anúncio que o token enxerga (diagnóstico).
+// contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
+// A loja de cada conta vem da tabela ad_accounts: um token pode enxergar contas das duas lojas,
+// e uma conta só é coletada se estiver lá, ativa, com a loja certa.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const GRAPH = "https://graph.facebook.com/v24.0";
@@ -123,14 +125,24 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const store: string = body.store ?? "aphago";
   const mode: string = body.mode ?? "incremental";
-  const token = Deno.env.get(`META_ACCESS_TOKEN_${store.toUpperCase()}`);
   const fonte = `meta${mode === "backfill" ? "_backfill" : ""}:${store}`;
-  if (!token) return Response.json({ store, error: `segredo META_ACCESS_TOKEN_${store.toUpperCase()} não configurado` }, { status: 500 });
+  const tokens = Object.entries(Deno.env.toObject())
+    .filter(([k, v]) => k.startsWith("META_ACCESS_TOKEN_") && v)
+    .map(([, v]) => v);
+  if (!tokens.length) return Response.json({ store, error: "nenhum segredo META_ACCESS_TOKEN_* configurado" }, { status: 500 });
 
   try {
-    const lista = await contas(token);
-    if (mode === "contas") return Response.json({ store, contas: lista });
-    const ativas = lista.filter((c) => c.account_status === 1);
+    // todas as contas que algum token enxerga, com o token que a enxerga
+    const vistas = new Map<string, { id: string; name: string; account_status: number; token: string }>();
+    for (const t of tokens) for (const c of await contas(t)) if (!vistas.has(c.id)) vistas.set(c.id, { ...c, token: t });
+    const { data: mapa } = await supabase.from("ad_accounts").select("account_id,store,ativo").eq("platform", "meta");
+    const lojaDe = new Map((mapa ?? []).map((m) => [`act_${m.account_id}`, m]));
+    if (mode === "contas") {
+      return Response.json({
+        contas: [...vistas.values()].map((c) => ({ id: c.id, nome: c.name, ativa: c.account_status === 1, loja: lojaDe.get(c.id)?.store ?? "sem loja (não coletada)" })),
+      });
+    }
+    const ativas = [...vistas.values()].filter((c) => c.account_status === 1 && lojaDe.get(c.id)?.store === store && lojaDe.get(c.id)?.ativo);
 
     const hoje = isoSP(new Date());
     let desde: string;
@@ -150,7 +162,7 @@ Deno.serve(async (req) => {
     while (Date.now() - started < TIME_BUDGET_MS) {
       const fimJanela = mode === "backfill" ? [addDays(desde, JANELA_DIAS - 1), hoje].sort()[0] : ate;
       for (const c of ativas) {
-        const rows = await insights(store, token, c.id, desde, fimJanela);
+        const rows = await insights(store, c.token, c.id, desde, fimJanela);
         await gravar(store, c.id, desde, fimJanela, rows);
         total += rows.length;
       }
