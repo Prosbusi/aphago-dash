@@ -1,6 +1,6 @@
 // Coleta do investimento do Meta Ads -> ad_spend (platform = 'meta').
 // Corpo: { "store": "aphago" | "abrasso", "mode": "incremental" | "backfill" | "contas", "since"?: "2026-08-01", "restart"?: true }
-// incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, em janelas de 7 dias, guardando o cursor.
+// incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, um dia por vez, guardando o cursor.
 // contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
 // A loja de cada conta vem da tabela ad_accounts: um token pode enxergar contas das duas lojas,
@@ -8,8 +8,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const GRAPH = "https://graph.facebook.com/v24.0";
-const TIME_BUDGET_MS = 110_000;
-const JANELA_DIAS = 7;
+const TIME_BUDGET_MS = 90_000;
+const JANELA_DIAS = 1; // avança um dia por vez e salva o progresso a cada dia
 
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -132,7 +132,6 @@ Deno.serve(async (req) => {
   if (!tokens.length) return Response.json({ store, error: "nenhum segredo META_ACCESS_TOKEN_* configurado" }, { status: 500 });
 
   try {
-    // todas as contas que algum token enxerga, com o token que a enxerga
     const vistas = new Map<string, { id: string; name: string; account_status: number; token: string }>();
     for (const t of tokens) for (const c of await contas(t)) if (!vistas.has(c.id)) vistas.set(c.id, { ...c, token: t });
     const { data: mapa } = await supabase.from("ad_accounts").select("account_id,store,ativo").eq("platform", "meta");
@@ -146,13 +145,12 @@ Deno.serve(async (req) => {
 
     const hoje = isoSP(new Date());
     let desde: string;
-    let ate = hoje;
-    let cursor: string | null = null;
+    const ate = hoje;
     if (mode === "backfill") {
       const { data: st } = await supabase.from("sync_state").select("cursor").eq("source", fonte).maybeSingle();
-      cursor = body.restart || !st?.cursor ? (body.since ?? "2026-08-01") : st.cursor;
+      const cursor = body.restart || !st?.cursor ? (body.since ?? "2026-08-01") : st.cursor;
       if (cursor === "fim") return Response.json({ store, mode, done: true });
-      desde = cursor!;
+      desde = cursor;
     } else {
       desde = addDays(hoje, -2);
     }
@@ -160,17 +158,18 @@ Deno.serve(async (req) => {
     let total = 0;
     let done = false;
     while (Date.now() - started < TIME_BUDGET_MS) {
-      const fimJanela = mode === "backfill" ? [addDays(desde, JANELA_DIAS - 1), hoje].sort()[0] : ate;
+      const fimJanela = [addDays(desde, JANELA_DIAS - 1), ate].sort()[0];
       for (const c of ativas) {
         const rows = await insights(store, c.token, c.id, desde, fimJanela);
         await gravar(store, c.id, desde, fimJanela, rows);
         total += rows.length;
       }
-      if (mode !== "backfill" || fimJanela >= hoje) { done = true; break; }
+      done = fimJanela >= ate;
       desde = addDays(fimJanela, 1);
-    }
-    if (mode === "backfill") {
-      await supabase.from("sync_state").upsert({ source: fonte, cursor: done ? "fim" : desde, last_run_at: new Date().toISOString() });
+      if (mode === "backfill") {
+        await supabase.from("sync_state").upsert({ source: fonte, cursor: done ? "fim" : desde, last_run_at: new Date().toISOString() });
+      }
+      if (done) break;
     }
     await supabase.from("sync_log").insert({ source: fonte, rows_read: total, status: done ? "ok" : "parcial" });
     return Response.json({ store, mode, contas: ativas.map((c) => `${c.name} (${c.id})`), linhas: total, done });
