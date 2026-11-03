@@ -7,7 +7,8 @@ type AuthState = { session: Session; isAdmin: boolean };
 const AuthCtx = createContext<AuthState | null>(null);
 export const useAuth = () => useContext(AuthCtx)!;
 
-const redirectTo = () => `${window.location.origin}${import.meta.env.BASE_URL}`;
+// volta para a mesma página (sem o #rota), em qualquer endereço onde o site estiver
+const redirectTo = () => `${window.location.origin}${window.location.pathname}`;
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
