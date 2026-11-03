@@ -20,7 +20,7 @@ const loja = (id: string): Item[] => [
   { to: `/${id}/produtos`, label: "Produtos" },
   { to: `/${id}/jornada`, label: "Jornada" },
   { to: `/${id}/retorno`, label: "Retorno" },
-  { to: `/${id}/lancamentos`, label: "Lançamentos", fase: "fase 2" },
+  { to: `/${id}/lancamentos`, label: "Lançamentos" },
 ];
 
 const AREAS = [{ id: "geral", nome: "Geral" }, ...LOJAS.map((l) => ({ id: l.id, nome: l.nome }))];
