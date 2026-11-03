@@ -37,7 +37,6 @@ const NOME_PLAT: Record<string, string> = { meta: "Meta", google: "Google" };
 const lista = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 const roas = (v: number, g: number) => (g > 0 ? v / g : 0);
 const fmtRoas = (r: number) => (r > 0 ? dec(r, 2) : "—");
-const diasEntre = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86_400_000);
 
 /** Soma dos dias 0..n (n = null: todos). */
 function acumulado(p: Placar, n: number | null) {
