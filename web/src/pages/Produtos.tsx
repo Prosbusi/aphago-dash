@@ -6,12 +6,14 @@ import { byProduto } from "../lib/agg";
 import { diaMes, money, num } from "../lib/format";
 import { Card, Empty, ErrorBox, Loading, PageTitle, ShareBar } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
+import { Codigos } from "./Codigos";
 
 export function Produtos() {
   const { period } = usePeriod();
   const store = useStoreParam();
   const { data, error, loading } = useDashData(period, store);
   const [busca, setBusca] = useState("");
+  const [aba, setAba] = useState<"vendas" | "codigos">(() => (window.location.hash.includes("codigos") ? "codigos" : "vendas"));
   const todos = data ? byProduto(data.items) : [];
   const q = busca.trim().toLowerCase();
   const lista = q ? todos.filter((p) => p.produto.toLowerCase().includes(q)) : todos;
@@ -19,10 +21,23 @@ export function Produtos() {
 
   return (
     <>
-      <PageTitle title={`Produtos · ${nomeLoja(store)}`} sub={`${diaMes(period.start)} a ${diaMes(period.end)}`} right={<PeriodPicker />} />
-      {error && <ErrorBox message={error} />}
-      {loading && !data && <Loading />}
-      {data && (
+      <PageTitle
+        title={`Produtos · ${nomeLoja(store)}`}
+        sub={aba === "vendas" ? `${diaMes(period.start)} a ${diaMes(period.end)}` : "Código de cada produto: família + modelo"}
+        right={aba === "vendas" ? <PeriodPicker /> : undefined}
+      />
+      <div role="tablist" aria-label="Visão" className="flex gap-1 border-b border-line">
+        {([["vendas", "Vendas"], ["codigos", "Códigos"]] as const).map(([id, nome]) => (
+          <button key={id} role="tab" type="button" aria-selected={aba === id} onClick={() => setAba(id)}
+            className={`-mb-px min-h-10 border-b-2 px-4 text-sm font-semibold ${aba === id ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink"}`}>
+            {nome}
+          </button>
+        ))}
+      </div>
+      {aba === "codigos" && <Codigos store={store} />}
+      {aba === "vendas" && error && <ErrorBox message={error} />}
+      {aba === "vendas" && loading && !data && <Loading />}
+      {aba === "vendas" && data && (
         <Card
           title={`${num(todos.length)} produtos vendidos`}
           extra={

@@ -57,7 +57,7 @@ query ($first: Int!, $after: String) {
   shop { primaryDomain { url } }
   products(first: $first, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes { id title handle status onlineStoreUrl featuredMedia { preview { image { url } } } }
+    nodes { id title handle status tags productType vendor createdAt onlineStoreUrl featuredMedia { preview { image { url } } } }
   }
 }`;
 
@@ -256,6 +256,10 @@ async function syncProducts(store: string, started: number) {
       status: p.status,
       online_url: p.onlineStoreUrl,
       image_url: p.featuredMedia?.preview?.image?.url ?? null,
+      tags: p.tags ?? [],
+      product_type: p.productType || null,
+      vendor: p.vendor || null,
+      created_at: p.createdAt ?? null,
       updated_at: new Date().toISOString(),
     }));
     await upsert("products", rows, "product_id");
