@@ -46,3 +46,11 @@ Para canais em que a UTM é colocada à mão: WhatsApp, e-mail, push e posts org
 
 Nenhuma chave fica neste repositório. Tokens das plataformas ficam nos segredos das Edge Functions do Supabase:
 `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` / `SHOPIFY_SHOP` (Aphago) e os mesmos com prefixo `ABRASSO_` (Abrasso).
+
+## Área Time (vinda do Fazeno)
+
+Tarefas do time, criação de produtos (4 etapas com checklist) e chuva de ideias. Telas em `web/src/pages/time`, regras em `web/src/lib/time.ts`.
+
+- Tabelas: `equipe`, `etiquetas`, `tarefas`, `colecoes`, `modelos`, `produtos_criacao`, `ideias`; imagens no bucket privado `time`.
+- **Código dos produtos** (`AP0001`, `AB0001`…): só os que vieram do Fazeno. O banco não deixa o site criar nem mudar código; produto novo fica "Sem código" até a nomenclatura nova ser definida.
+- Avisos no Discord pela Edge Function `avisar-discord` (nova tarefa, @menção em produto, botão Lançar). Segredo: `DISCORD_BOT_TOKEN`. Quem é marcado vem de `equipe.discord_id`.

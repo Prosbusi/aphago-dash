@@ -14,6 +14,12 @@ const GERAL: Item[] = [
   { to: "/geral/ajustes", label: "Ajustes" },
 ];
 
+const TIME: Item[] = [
+  { to: "/time", label: "Tarefas", end: true },
+  { to: "/time/produtos", label: "Criação de produtos" },
+  { to: "/time/ideias", label: "Chuva de ideias" },
+];
+
 const loja = (id: string): Item[] => [
   { to: `/${id}`, label: "Visão geral", end: true },
   { to: `/${id}/canais`, label: "Por canal" },
@@ -23,10 +29,11 @@ const loja = (id: string): Item[] => [
   { to: `/${id}/lancamentos`, label: "Lançamentos" },
 ];
 
-const AREAS = [{ id: "geral", nome: "Geral" }, ...LOJAS.map((l) => ({ id: l.id, nome: l.nome }))];
+const AREAS = [{ id: "geral", nome: "Geral" }, ...LOJAS.map((l) => ({ id: l.id, nome: l.nome })), { id: "time", nome: "Time" }];
 
 /** Cor de destaque por área: roxo na Aphago e no Geral, vinho na Abrasso. */
 const ACCENT: Record<string, CSSProperties> = {
+  time: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
   geral: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
   aphago: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
   abrasso: { "--accent": "157 34 53", "--accent-claro": "231 200 205", "--accent-texto": "157 34 53", "--accent-escuro": "118 24 39" } as CSSProperties,
@@ -46,7 +53,7 @@ export function Layout() {
   const refresh = useRefresh();
   const { pathname } = useLocation();
   const area = pathname.split("/")[1] || "geral";
-  const nav = area === "geral" ? GERAL : loja(area);
+  const nav = area === "geral" ? GERAL : area === "time" ? TIME : loja(area);
   const inicial = (session.user.email ?? "?").slice(0, 1).toUpperCase();
 
   return (
