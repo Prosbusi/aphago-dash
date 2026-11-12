@@ -44,7 +44,7 @@ with gasto as (
   where a.store = p_store and a.platform = 'meta' and a.day between p_inicio and p_fim
 ),
 venda as (
-  select c.familia, c.letra, (o.created_at at time zone 'America/Sao_Paulo')::date as dia, i.order_id, i.quantity, i.amount,
+  select c.familia, c.letra, i.product_id, (o.created_at at time zone 'America/Sao_Paulo')::date as dia, i.order_id, i.quantity, i.amount,
          o.customer_order_index = 1 as novo
   from public.order_items i
   join public.orders o using (order_id)
@@ -94,6 +94,12 @@ select jsonb_build_object(
     select jsonb_agg(x order by x.receita desc) from (
       select v.letra, pl.modelo, sum(v.quantity) as unidades, sum(v.amount) as receita
       from venda v join public.produto_letras pl using (letra) group by v.letra, pl.modelo
+    ) x), '[]'::jsonb),
+  'produtos', coalesce((
+    select jsonb_agg(x order by x.familia, x.unidades desc, x.receita desc) from (
+      select v.familia, v.product_id, p.title, p.online_url, p.image_url, sum(v.quantity) as unidades, sum(v.amount) as receita,
+             count(distinct v.order_id) as pedidos
+      from venda v join public.products p using (product_id) group by v.familia, v.product_id, p.title, p.online_url, p.image_url
     ) x), '[]'::jsonb),
   'familia_modelos', coalesce((
     select jsonb_agg(x) from (

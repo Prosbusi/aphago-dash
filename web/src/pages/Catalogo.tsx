@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { usePeriod } from "../period-context";
-import { useCatalogo, MODELO, roas, type Catalogo as Cat, type FamiliaCat } from "../lib/catalogo";
+import { useCatalogo, MODELO, roas, type Catalogo as Cat, type FamiliaCat, type ProdutoCat } from "../lib/catalogo";
 import { dec, money, money2, num } from "../lib/format";
 import { Card, Empty, ErrorBox, Kpi, Loading, ShareBar } from "../components/ui";
 
@@ -37,6 +37,12 @@ function Conteudo({ d }: { d: Cat }) {
       .sort((a, b) => (ordem === "cac" ? val(a) - val(b) : val(b) - val(a)));
   }, [d.familias, ordem, busca, todos]);
   const maxGasto = Math.max(...lista.map((f) => f.gasto), 1);
+  // produtos vendidos de cada família (já vêm do mais vendido para o menos vendido)
+  const porFamilia = useMemo(() => {
+    const m = new Map<string, ProdutoCat[]>();
+    for (const p of d.produtos) m.set(p.familia, [...(m.get(p.familia) ?? []), p]);
+    return m;
+  }, [d.produtos]);
   const th = "p-2 text-right font-semibold";
 
   return (
@@ -90,16 +96,24 @@ function Conteudo({ d }: { d: Cat }) {
                 {lista.slice(0, 200).map((f) => {
                   const r = roas(f.receita, f.gasto);
                   const open = aberta === f.familia;
+                  const prods = porFamilia.get(f.familia) ?? [];
+                  const capa = prods.find((p) => p.image_url)?.image_url ?? f.imagem;
+                  const unico = prods.length === 1 ? prods[0] : null;
                   return (
                     <Fragment key={f.familia}>
                       <tr className="cursor-pointer border-t border-soft hover:bg-soft/40" onClick={() => setAberta(open ? null : f.familia)}>
                         <td className="py-2.5 pr-2"><span className="rounded-md border border-line bg-soft px-2 py-0.5 font-mono text-[12px] font-bold">{f.familia}</span></td>
                         <td className="p-2">
                           <div className="flex items-center gap-2.5">
-                            {f.imagem ? <img src={f.imagem} alt="" loading="lazy" className="h-10 w-10 rounded-md object-cover" /> : <span className="h-10 w-10 rounded-md bg-soft" />}
+                            <span aria-hidden="true" className="w-3 text-[11px] text-muted">{prods.length > 1 ? (open ? "▾" : "▸") : ""}</span>
+                            {capa ? <img src={capa} alt="" loading="lazy" className="h-10 w-10 rounded-md object-cover" /> : <span className="h-10 w-10 rounded-md bg-soft" />}
                             <div className="min-w-0">
-                              <div className="font-semibold">{f.nome} <span aria-hidden="true" className="text-muted">{open ? "▾" : "▸"}</span></div>
-                              <div className="text-xs text-muted">{f.modelos.split("").map((l) => MODELO[l] ?? l).join(" · ")}</div>
+                              <div className="font-semibold">{f.nome}</div>
+                              <div className="truncate text-xs text-muted">
+                                {prods.length > 1
+                                  ? `${prods.length} produtos vendidos no período · clique para ${open ? "recolher" : "ver"}`
+                                  : unico?.online_url ? unico.online_url.replace(/^https?:\/\//, "") : f.modelos.split("").map((l) => MODELO[l] ?? l).join(" · ")}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -118,9 +132,40 @@ function Conteudo({ d }: { d: Cat }) {
                         <td className="p-2 text-right">{f.gasto && f.unidades ? money2(f.gasto / f.unidades) : "—"}</td>
                         <td className="py-2 pl-2 text-right">{f.pedidos ? money2(f.receita / f.pedidos) : "—"}</td>
                       </tr>
+                      {open && prods.length > 1 && prods.map((p) => {
+                        // investimento, cliques e compras da família divididos pela receita de cada produto
+                        const parte = f.receita > 0 ? p.receita / f.receita : 0;
+                        const g = f.gasto * parte;
+                        return (
+                          <tr key={p.product_id} className="border-t border-soft bg-soft/30 text-[13px]">
+                            <td className="py-2 pr-2 text-center text-muted">↳</td>
+                            <td className="p-2">
+                              <div className="flex items-center gap-2.5 pl-5">
+                                {p.image_url ? <img src={p.image_url} alt="" loading="lazy" className="h-9 w-9 rounded-md object-cover" /> : <span className="h-9 w-9 rounded-md bg-soft" />}
+                                <div className="min-w-0">
+                                  <div className="font-semibold">{p.title}</div>
+                                  {p.online_url && (
+                                    <a href={p.online_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                                      className="block max-w-[340px] truncate text-xs text-muted hover:underline">{p.online_url.replace(/^https?:\/\//, "")}</a>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-2 text-right text-muted">—</td>
+                            <td className="p-2 text-right">{g ? money2(g) : "—"}</td>
+                            <td className="p-2 text-right">{f.cliques ? dec(f.cliques * parte, 1) : "—"}</td>
+                            <td className="p-2 text-right">{f.compras_meta ? dec(f.compras_meta * parte, 1) : "—"}</td>
+                            <td className="p-2 text-right">{num(p.unidades)}</td>
+                            <td className="p-2 text-right font-semibold">{money2(p.receita)}</td>
+                            <td className="p-2 text-right">{fmtRoas(r)}</td>
+                            <td className="p-2 text-right">{g && p.unidades ? money2(g / p.unidades) : "—"}</td>
+                            <td className="py-2 pl-2 text-right">{p.pedidos ? money2(p.receita / p.pedidos) : "—"}</td>
+                          </tr>
+                        );
+                      })}
                       {open && (
-                        <tr className="bg-soft/40">
-                          <td colSpan={11} className="px-2 pb-3 pt-1"><Detalhe f={f} d={d} /></td>
+                        <tr className="bg-soft/30">
+                          <td colSpan={11} className="px-2 pb-3 pt-2"><Detalhe f={f} d={d} /></td>
                         </tr>
                       )}
                     </Fragment>
@@ -133,7 +178,8 @@ function Conteudo({ d }: { d: Cat }) {
         )}
         <p className="mt-3 text-xs text-muted">
           ROAS = receita real na Shopify ÷ investimento no Meta. CAC = investimento ÷ unidades. A receita soma todos os modelos da família:
-          quem clica no anúncio da camiseta e compra o oversized conta para a mesma família.
+          quem clica no anúncio da camiseta e compra o oversized conta para a mesma família. Nos produtos de cada família, o investimento,
+          os cliques e as compras do Meta são divididos pela receita de cada um (o ROAS fica igual ao da família).
         </p>
       </Card>
     </>

@@ -8,6 +8,10 @@ export type FamiliaCat = {
   familia: string; nome: string; imagem: string | null; modelos: string; anuncios: number; gasto: number; cliques: number;
   impressoes: number; compras_meta: number; receita_meta: number; unidades: number; receita: number; pedidos: number; pedidos_novos: number;
 };
+export type ProdutoCat = {
+  familia: string; product_id: string; title: string; online_url: string | null; image_url: string | null;
+  unidades: number; receita: number; pedidos: number;
+};
 export type Catalogo = {
   totais: {
     gasto_meta: number; gasto_familia: number; gasto_all: number; gasto_sem_familia: number;
@@ -15,6 +19,7 @@ export type Catalogo = {
   };
   familias: FamiliaCat[];
   modelos: { letra: string; modelo: string; unidades: number; receita: number }[];
+  produtos: ProdutoCat[];
   familia_modelos: { familia: string; letra: string; unidades: number; receita: number }[];
   dias: { dia: string; familia: string; receita: number; gasto: number }[];
   canais: { familia: string; canal: string; grupo: string; valor: number }[];
@@ -48,6 +53,7 @@ export function useCatalogo(store: string, inicio: string, fim: string) {
       }));
       for (const k of Object.keys(d.totais) as (keyof Catalogo["totais"])[]) d.totais[k] = n(d.totais[k]);
       d.modelos = d.modelos.map((m) => ({ ...m, receita: n(m.receita), unidades: n(m.unidades) }));
+      d.produtos = (d.produtos ?? []).map((x) => ({ ...x, unidades: n(x.unidades), receita: n(x.receita), pedidos: n(x.pedidos) }));
       d.familia_modelos = d.familia_modelos.map((m) => ({ ...m, receita: n(m.receita), unidades: n(m.unidades) }));
       d.dias = d.dias.map((x) => ({ ...x, receita: n(x.receita), gasto: n(x.gasto) }));
       d.canais = d.canais.map((x) => ({ ...x, valor: n(x.valor) }));
