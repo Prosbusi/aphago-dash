@@ -46,3 +46,13 @@ Para canais em que a UTM é colocada à mão: WhatsApp, e-mail, push e posts org
 
 Nenhuma chave fica neste repositório. Tokens das plataformas ficam nos segredos das Edge Functions do Supabase:
 `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` / `SHOPIFY_SHOP` (Aphago) e os mesmos com prefixo `ABRASSO_` (Abrasso).
+
+## Atribuição por canal (tela Por canal)
+
+Cada pedido divide 100% do valor entre os canais do caminho, em quatro modelos: **linear** (padrão), **inteligente** (`em_u`: pesos por etapa, editáveis na tela, padrão 40/20/40), **primeiro clique** e **último clique**.
+
+- `canal_regras`: tabela de canais em ordem (a primeira regra que casar define o canal; `(ignorar)` tira a visita do caminho). Editar reclassifica o histórico.
+- `atribuicao` (pedido × modelo × canal × campanha) e `atribuicao_pedido` (caminho do pedido): gravadas por `atribuir_pedido`, rodando a cada 10 min (`atribuir_pendentes`) e depois de cada coleta.
+- Regras: janela de 30 dias, checkout e tráfego interno sem UTM fora, Direto só quando é o único canal, canal repetido conta uma vez, fatia do canal dividida entre as campanhas, pedido sem jornada = "Sem dados". O último clique usa a última visita da Shopify (bate com o relatório da Shopify).
+- Botões da bio: campo `Origem bio` do pedido (blocos 27 Aphago / 18 Abrasso) detalha a fatia do Instagram orgânico; nomes em `botao_apelidos`.
+- A tela lê `atribuicao_painel(loja, início, fim, modelo, hora_de, hora_até)`.

@@ -34,6 +34,7 @@ query ($first: Int!, $after: String, $q: String!) {
       currentTotalDiscountsSet { shopMoney { amount } }
       totalRefundedSet { shopMoney { amount } }
       discountCodes
+      customAttributes { key value }
       lineItems(first: 30) {
         nodes { id title variantTitle sku quantity product { id } discountedTotalSet { shopMoney { amount } } }
       }
@@ -47,7 +48,7 @@ query ($first: Int!, $after: String, $q: String!) {
   }
 }
 fragment V on CustomerVisit {
-  id occurredAt source referrerUrl landingPage
+  id occurredAt source sourceType referrerUrl landingPage
   utmParameters { source medium campaign content term }
 }`;
 
@@ -61,7 +62,7 @@ query ($first: Int!, $after: String) {
 }`;
 
 type Visit = {
-  id: string; occurredAt: string; source: string | null; referrerUrl: string | null; landingPage: string | null;
+  id: string; occurredAt: string; source: string | null; sourceType?: string | null; referrerUrl: string | null; landingPage: string | null;
   utmParameters: { source?: string; medium?: string; campaign?: string; content?: string; term?: string } | null;
 };
 
@@ -134,6 +135,24 @@ function visitCols(prefix: "first" | "last", v: Visit | null) {
   };
 }
 
+// Campos gravados pelos blocos da página de links (Aphago bloco 27, Abrasso bloco 18).
+// deno-lint-ignore no-explicit-any
+function bioAttrs(attrs: any[] | null | undefined) {
+  const get = (k: string) => (attrs ?? []).find((a) => String(a?.key ?? "").trim().toLowerCase() === k)?.value ?? null;
+  const botao = get("origem bio");
+  const quando = get("origem bio (data)");
+  let em: string | null = null;
+  if (quando) {
+    const t = Date.parse(String(quando));
+    if (!Number.isNaN(t)) em = new Date(t).toISOString();
+    else if (/^\d{10,13}$/.test(String(quando).trim())) {
+      const n = Number(quando);
+      em = new Date(n < 1e12 ? n * 1000 : n).toISOString();
+    }
+  }
+  return { bio_botao: botao ? String(botao).trim().toLowerCase() : null, bio_em: em };
+}
+
 // deno-lint-ignore no-explicit-any
 function mapOrder(store: string, o: any) {
   const j = o.customerJourneySummary;
@@ -156,6 +175,7 @@ function mapOrder(store: string, o: any) {
     customer_order_index: j?.customerOrderIndex ?? null,
     days_to_conversion: j?.daysToConversion ?? null,
     visits_count: j?.momentsCount?.count ?? null,
+    ...bioAttrs(o.customAttributes),
     ...visitCols("first", j?.firstVisit ?? null),
     ...visitCols("last", j?.lastVisit ?? null),
     raw: { updatedAt: o.updatedAt, journeyReady: j?.ready ?? null },
@@ -190,6 +210,7 @@ function mapOrder(store: string, o: any) {
     landing_page: v.landingPage,
     referrer: v.referrerUrl,
     source_label: v.source,
+    source_type: v.sourceType ? String(v.sourceType).toLowerCase() : null,
   }));
   return { order, items, visits };
 }
@@ -320,6 +341,8 @@ Deno.serve(async (req) => {
       last_run_at: mode === "backfill" || done ? new Date(started).toISOString() : state?.last_run_at ?? null,
     });
     await log(stateKey, total, done ? "ok" : "parcial");
+    // atribuição dos pedidos novos ou alterados (a tela Por canal lê o resultado gravado)
+    if (total > 0) await supabase.rpc("atribuir_pendentes", { p_limite: 2000 });
     return Response.json({ store, mode, rows: total, done });
   } catch (e) {
     await log(stateKey, total, "erro", String(e));
