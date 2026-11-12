@@ -57,7 +57,7 @@ query ($first: Int!, $after: String) {
   shop { primaryDomain { url } }
   products(first: $first, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes { id title handle status onlineStoreUrl featuredMedia { preview { image { url } } } }
+    nodes { id title handle status tags productType vendor createdAt onlineStoreUrl featuredMedia { preview { image { url } } } }
   }
 }`;
 
@@ -244,6 +244,8 @@ async function syncProducts(store: string, started: number) {
   let after: string | null = null;
   let total = 0;
   let siteUrl: string | null = null;
+  let completo = false;
+  const inicio = new Date().toISOString();
   while (Date.now() - started < TIME_BUDGET_MS) {
     const data = await gql(c.shop, token, PRODUCTS_QUERY, { first: 50, after });
     siteUrl = data.shop?.primaryDomain?.url ?? siteUrl;
@@ -256,12 +258,22 @@ async function syncProducts(store: string, started: number) {
       status: p.status,
       online_url: p.onlineStoreUrl,
       image_url: p.featuredMedia?.preview?.image?.url ?? null,
+      tags: p.tags ?? [],
+      product_type: p.productType || null,
+      vendor: p.vendor || null,
+      created_at: p.createdAt ?? null,
       updated_at: new Date().toISOString(),
     }));
     await upsert("products", rows, "product_id");
     total += rows.length;
     after = data.products.pageInfo.endCursor;
-    if (!data.products.pageInfo.hasNextPage) break;
+    if (!data.products.pageInfo.hasNextPage) { completo = true; break; }
+  }
+  if (completo) {
+    // produto apagado na Shopify: sai do catálogo e da lista de códigos
+    const { data: velhos } = await supabase.from("products").delete().eq("store", store).lt("updated_at", inicio).select("product_id");
+    const ids = (velhos ?? []).map((v: { product_id: string }) => v.product_id);
+    if (ids.length) await supabase.from("produto_codigos").delete().in("product_id", ids);
   }
   if (siteUrl) await supabase.from("stores").update({ site_url: siteUrl.replace(/\/$/, ""), updated_at: new Date().toISOString() }).eq("store", store);
   return total;
