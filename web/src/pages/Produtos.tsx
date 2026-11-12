@@ -7,13 +7,15 @@ import { diaMes, money, num } from "../lib/format";
 import { Card, Empty, ErrorBox, Loading, PageTitle, ShareBar } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
 import { Codigos } from "./Codigos";
+import { Catalogo } from "./Catalogo";
+import { Analises } from "./Analises";
 
 export function Produtos() {
   const { period } = usePeriod();
   const store = useStoreParam();
   const { data, error, loading } = useDashData(period, store);
   const [busca, setBusca] = useState("");
-  const [aba, setAba] = useState<"vendas" | "codigos">(() => (window.location.hash.includes("codigos") ? "codigos" : "vendas"));
+  const [aba, setAba] = useState<"vendas" | "catalogo" | "analises" | "codigos">("catalogo");
   const todos = data ? byProduto(data.items) : [];
   const q = busca.trim().toLowerCase();
   const lista = q ? todos.filter((p) => p.produto.toLowerCase().includes(q)) : todos;
@@ -23,17 +25,19 @@ export function Produtos() {
     <>
       <PageTitle
         title={`Produtos · ${nomeLoja(store)}`}
-        sub={aba === "vendas" ? `${diaMes(period.start)} a ${diaMes(period.end)}` : "Código de cada produto: família + modelo"}
-        right={aba === "vendas" ? <PeriodPicker /> : undefined}
+        sub={aba === "codigos" ? "Código de cada produto: família + modelo" : `${diaMes(period.start)} a ${diaMes(period.end)}`}
+        right={aba === "codigos" ? undefined : <PeriodPicker />}
       />
       <div role="tablist" aria-label="Visão" className="flex gap-1 border-b border-line">
-        {([["vendas", "Vendas"], ["codigos", "Códigos"]] as const).map(([id, nome]) => (
+        {([["catalogo", "Catálogo"], ["analises", "Análises"], ["vendas", "Vendas"], ["codigos", "Códigos"]] as const).map(([id, nome]) => (
           <button key={id} role="tab" type="button" aria-selected={aba === id} onClick={() => setAba(id)}
             className={`-mb-px min-h-10 border-b-2 px-4 text-sm font-semibold ${aba === id ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink"}`}>
             {nome}
           </button>
         ))}
       </div>
+      {aba === "catalogo" && <Catalogo store={store} />}
+      {aba === "analises" && <Analises store={store} />}
       {aba === "codigos" && <Codigos store={store} />}
       {aba === "vendas" && error && <ErrorBox message={error} />}
       {aba === "vendas" && loading && !data && <Loading />}

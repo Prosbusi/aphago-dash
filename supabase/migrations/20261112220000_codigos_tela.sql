@@ -54,7 +54,8 @@ begin
   update public.produto_codigos set familia = v_fam, letra = lower(p_letra), origem = case when origem = 'existente' then 'corrigido' else origem end,
          revisar = null, updated_at = now()
   where product_id = p_product;
-  delete from public.produto_familias f where f.origem = 'novo' and not exists (select 1 from public.produto_codigos c where c.familia = f.familia);
+  delete from public.produto_familias f where f.origem = 'novo' and not exists (select 1 from public.produto_codigos c where c.familia = f.familia)
+    and not exists (select 1 from public.anuncio_tag_familia t where t.familia = f.familia);
   return v_fam;
 end;
 $$;
@@ -78,6 +79,7 @@ begin
   end if;
   update public.produto_codigos set familia = p_para, origem = case when origem = 'existente' then 'corrigido' else origem end, updated_at = now()
   where familia = p_de;
+  update public.anuncio_tag_familia set familia = p_para where familia = p_de;
   delete from public.produto_familias where familia = p_de;
 end;
 $$;
