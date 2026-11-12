@@ -7,7 +7,7 @@ const PeriodCtx = createContext<Ctx | null>(null);
 function initial(): Period {
   try {
     const saved = localStorage.getItem("periodo");
-    if (saved && ["hoje", "7d", "30d", "mes"].includes(saved)) return makePeriod(saved as PeriodKey);
+    if (saved && ["hoje", "ontem", "7d", "30d", "mes", "mes_passado"].includes(saved)) return makePeriod(saved as PeriodKey);
   } catch {
     /* sem armazenamento local */
   }

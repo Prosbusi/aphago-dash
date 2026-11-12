@@ -5,9 +5,11 @@ import { todaySP } from "../lib/period";
 
 const OPTS: { key: PeriodKey; label: string }[] = [
   { key: "hoje", label: "Hoje" },
+  { key: "ontem", label: "Ontem" },
   { key: "7d", label: "7 dias" },
   { key: "30d", label: "30 dias" },
-  { key: "mes", label: "Mês" },
+  { key: "mes", label: "Este mês" },
+  { key: "mes_passado", label: "Mês passado" },
   { key: "custom", label: "Personalizado" },
 ];
 

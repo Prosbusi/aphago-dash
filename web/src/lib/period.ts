@@ -1,6 +1,6 @@
 // Períodos sempre no fuso de São Paulo, em datas "YYYY-MM-DD" (coluna `dia` das views).
 
-export type PeriodKey = "hoje" | "7d" | "30d" | "mes" | "custom";
+export type PeriodKey = "hoje" | "ontem" | "7d" | "30d" | "mes" | "mes_passado" | "custom";
 export type Period = { key: PeriodKey; start: string; end: string; prevStart: string; prevEnd: string; label: string };
 
 export function todaySP(): string {
@@ -21,9 +21,18 @@ export function makePeriod(key: PeriodKey, custom?: { start: string; end: string
   let start = today;
   let end = today;
   let label = "Hoje";
+  if (key === "ontem") { start = end = addDays(today, -1); label = "Ontem"; }
   if (key === "7d") { start = addDays(today, -6); label = "Últimos 7 dias"; }
   if (key === "30d") { start = addDays(today, -29); label = "Últimos 30 dias"; }
   if (key === "mes") { start = `${today.slice(0, 8)}01`; label = "Este mês"; }
+  if (key === "mes_passado") {
+    end = addDays(`${today.slice(0, 8)}01`, -1);
+    start = `${end.slice(0, 8)}01`;
+    label = "Mês passado";
+    // compara com o mês inteiro anterior a ele
+    const prevEnd = addDays(start, -1);
+    return { key, start, end, prevStart: `${prevEnd.slice(0, 8)}01`, prevEnd, label };
+  }
   if (key === "custom" && custom) { start = custom.start; end = custom.end; label = "Personalizado"; }
   const len = daysBetween(start, end);
   const prevEnd = addDays(start, -1);
