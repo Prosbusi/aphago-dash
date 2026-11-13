@@ -9,7 +9,7 @@ export type Tarefa = {
   imagens: string[]; etiquetas: string[]; concluida: boolean; concluida_em: string | null; criado_por: string | null; created_at: string;
 };
 export type Colecao = { id: string; nome: string };
-export type Modelo = { id: string; nome: string; posicao: number };
+export type Modelo = { id: string; nome: string; posicao: number; letra: string | null };
 export type Produto = {
   id: string; marca: "AP" | "AB"; codigo: string | null; nome: string; descricao: string; imagens: string[];
   modelos: string[]; cores: string[]; checks: string[]; colecao_id: string | null; prazo: string | null;

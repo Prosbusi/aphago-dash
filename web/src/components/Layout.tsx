@@ -18,6 +18,7 @@ const TIME: Item[] = [
   { to: "/time", label: "Tarefas", end: true },
   { to: "/time/produtos", label: "Criação de produtos" },
   { to: "/time/ideias", label: "Chuva de ideias" },
+  { to: "/time/grok", label: "Grok" },
 ];
 
 const loja = (id: string): Item[] => [

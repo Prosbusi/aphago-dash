@@ -274,6 +274,8 @@ async function syncProducts(store: string, started: number) {
     const { data: velhos } = await supabase.from("products").delete().eq("store", store).lt("updated_at", inicio).select("product_id");
     const ids = (velhos ?? []).map((v: { product_id: string }) => v.product_id);
     if (ids.length) await supabase.from("produto_codigos").delete().in("product_id", ids);
+    // produtos novos que já chegaram com a tag de código (ex.: criados pelo Grok) e checklist dos lançamentos
+    await supabase.rpc("vincular_codigos_tags");
   }
   if (siteUrl) await supabase.from("stores").update({ site_url: siteUrl.replace(/\/$/, ""), updated_at: new Date().toISOString() }).eq("store", store);
   return total;

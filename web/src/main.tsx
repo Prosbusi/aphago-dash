@@ -18,6 +18,7 @@ import { LOJAS } from "./lib/store";
 import { Tarefas } from "./pages/time/Tarefas";
 import { Produtos as ProdutosCriacao } from "./pages/time/Produtos";
 import { Ideias } from "./pages/time/Ideias";
+import { GrokConfig } from "./pages/time/Grok";
 
 /** Só deixa passar /aphago/... e /abrasso/...; o resto volta para o resumo. */
 function LojaValida({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="time" element={<Tarefas />} />
               <Route path="time/produtos" element={<ProdutosCriacao />} />
               <Route path="time/ideias" element={<Ideias />} />
+              <Route path="time/grok" element={<GrokConfig />} />
               <Route path=":store" element={<LojaValida><VisaoGeral /></LojaValida>} />
               <Route path=":store/canais" element={<LojaValida><PorCanal /></LojaValida>} />
               <Route path=":store/produtos" element={<LojaValida><Produtos /></LojaValida>} />

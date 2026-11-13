@@ -1,4 +1,4 @@
--- Tela Produtos › Códigos: lista pesquisável, revisão (admin) e gravação das tags na Shopify.
+-- Tela Produtos › Códigos (roda depois de criacao_grok: usa proxima_familia e produtos_criacao): lista pesquisável, revisão (admin) e gravação das tags na Shopify.
 
 create or replace view public.v_produto_codigos with (security_invoker = true) as
 select c.product_id, c.store, c.familia, f.nome as familia_nome, f.origem as familia_origem, c.letra, l.modelo, c.codigo,
@@ -35,18 +35,15 @@ $$;
 -- Muda família e/ou letra de um produto. p_familia = 'nova' cria uma família nova para ele.
 create or replace function public.codigo_alterar(p_product text, p_familia text, p_letra text)
 returns text language plpgsql security definer set search_path = '' as $$
-declare v_store text; v_fam text := upper(trim(p_familia)); v_nome text; prox int; pref text;
+declare v_store text; v_fam text := upper(trim(p_familia)); v_nome text;
 begin
   perform public._exige_admin();
   select c.store, split_part(split_part(p.title, ' - ', 1), ' – ', 1) into v_store, v_nome
   from public.produto_codigos c join public.products p using (product_id) where c.product_id = p_product;
   if v_store is null then raise exception 'Produto sem código'; end if;
-  pref := case v_store when 'aphago' then 'AP' else 'AB' end;
   if v_fam = 'NOVA' then
-    select coalesce(max(substring(familia from 3)::int), 0) + 1 into prox from (
-      select familia from public.produto_familias where familia like pref || '%'
-      union all select familia from public.produto_codigos_reservados where familia like pref || '%') u;
-    v_fam := pref || lpad(prox::text, 4, '0');
+    perform pg_advisory_xact_lock(hashtext('codigo:' || case v_store when 'aphago' then 'AP' else 'AB' end));
+    v_fam := public.proxima_familia(v_store);
     insert into public.produto_familias (familia, store, nome, origem, criada_em) values (v_fam, v_store, v_nome, 'novo', now());
   elsif not exists (select 1 from public.produto_familias where familia = v_fam and store = v_store) then
     raise exception 'Família % não existe nesta loja', v_fam;
@@ -55,7 +52,8 @@ begin
          revisar = null, updated_at = now()
   where product_id = p_product;
   delete from public.produto_familias f where f.origem = 'novo' and not exists (select 1 from public.produto_codigos c where c.familia = f.familia)
-    and not exists (select 1 from public.anuncio_tag_familia t where t.familia = f.familia);
+    and not exists (select 1 from public.anuncio_tag_familia t where t.familia = f.familia)
+    and not exists (select 1 from public.produtos_criacao pc where pc.codigo = f.familia);
   return v_fam;
 end;
 $$;
@@ -76,6 +74,9 @@ begin
   if p_de = p_para then return; end if;
   if (select store from public.produto_familias where familia = p_de) is distinct from (select store from public.produto_familias where familia = p_para) then
     raise exception 'As duas famílias precisam ser da mesma loja';
+  end if;
+  if exists (select 1 from public.produtos_criacao where codigo = p_de) then
+    raise exception 'A família % é de um lançamento do Time; junte a outra família nela', p_de;
   end if;
   update public.produto_codigos set familia = p_para, origem = case when origem = 'existente' then 'corrigido' else origem end, updated_at = now()
   where familia = p_de;

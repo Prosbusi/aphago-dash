@@ -7,6 +7,7 @@ import {
   CORES_PRODUTO, MARCAS, type Colecao, type Ideia, type Modelo, type Pessoa, type Produto,
 } from "../../lib/time";
 import { Card, Empty, ErrorBox, Loading, PageTitle } from "../../components/ui";
+import { GrokPainel } from "./Grok";
 import { CampoImagens, Chip, Miniaturas, RecadoBox, Rotulo, Texto, btnPrim, btnSec, inputCls, type Recado } from "../../components/time";
 
 type Rascunho = {
@@ -136,7 +137,7 @@ function CartaoProduto({ p, modelos, colecoes, onTrocar, onRecarregar, onEditar,
   return (
     <section className={`rounded-[14px] border border-line bg-white ${p.cancelado ? "opacity-60" : ""}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-left">
-        <span className={`rounded-md px-2 py-1 font-mono text-[13px] font-bold ${p.codigo ? "bg-ink text-white" : "border border-dashed border-line text-muted"}`}>{p.codigo ?? "Sem código"}</span>
+        <span className={`rounded-md px-2 py-1 font-mono text-[13px] font-bold ${p.codigo ? "bg-ink text-white" : "border border-dashed border-line text-muted"}`}>{p.codigo ?? "código ao salvar"}</span>
         <span className="min-w-0 flex-auto">
           <span className={`block font-semibold ${p.cancelado ? "line-through" : ""}`}>{p.nome}</span>
           <span className="mt-0.5 block text-xs text-muted">
@@ -177,6 +178,10 @@ function CartaoProduto({ p, modelos, colecoes, onTrocar, onRecarregar, onEditar,
                           <label className="flex min-h-8 items-center gap-2 text-sm">
                             <input type="checkbox" checked={p.checks.includes(i.key)} disabled={p.cancelado} onChange={() => alternar(i.key)} className="h-4 w-4" />
                             {i.label}
+                            {i.key.startsWith("model.") && p.codigo && (() => {
+                              const l = modelos.find((m) => `model.${m.id}` === i.key)?.letra;
+                              return l ? <span className="font-mono text-xs text-muted">{p.codigo}-{l}</span> : null;
+                            })()}
                           </label>
                         </li>
                       ))}
@@ -192,6 +197,7 @@ function CartaoProduto({ p, modelos, colecoes, onTrocar, onRecarregar, onEditar,
               );
             })}
           </div>
+          {p.codigo && !p.cancelado && <GrokPainel p={p} setRecado={setRecado} onRecarregar={onRecarregar} />}
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btnSec} onClick={onEditar}>Editar</button>
             <button type="button" className={btnSec} onClick={() => patch({ cancelado: !p.cancelado })}>{p.cancelado ? "Reativar" : "Cancelar produto"}</button>
