@@ -56,3 +56,10 @@ Cada pedido divide 100% do valor entre os canais do caminho, em quatro modelos: 
 - Regras: janela de 30 dias, checkout e tráfego interno sem UTM fora, Direto só quando é o único canal, canal repetido conta uma vez, fatia do canal dividida entre as campanhas, pedido sem jornada = "Sem dados". O último clique usa a última visita da Shopify (bate com o relatório da Shopify).
 - Botões da bio: campo `Origem bio` do pedido (blocos 27 Aphago / 18 Abrasso) detalha a fatia do Instagram orgânico; nomes em `botao_apelidos`.
 - A tela lê `atribuicao_painel(loja, início, fim, modelo, hora_de, hora_até)`.
+## Área Time (vinda do Fazeno)
+
+Tarefas do time, criação de produtos (4 etapas com checklist) e chuva de ideias. Telas em `web/src/pages/time`, regras em `web/src/lib/time.ts`.
+
+- Tabelas: `equipe`, `etiquetas`, `tarefas`, `colecoes`, `modelos`, `produtos_criacao`, `ideias`; imagens no bucket privado `time`.
+- **Código dos produtos** (`AP0001`, `AB0001`…): só os que vieram do Fazeno. O banco não deixa o site criar nem mudar código; produto novo fica "Sem código" até a nomenclatura nova ser definida.
+- Avisos no Discord pela Edge Function `avisar-discord` (nova tarefa, @menção em produto, botão Lançar). Segredo: `DISCORD_BOT_TOKEN`. Quem é marcado vem de `equipe.discord_id`.
