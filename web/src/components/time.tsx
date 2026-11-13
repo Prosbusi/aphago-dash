@@ -126,10 +126,11 @@ export function Rotulo({ children, htmlFor }: { children: ReactNode; htmlFor?: s
   return <label htmlFor={htmlFor} className="text-[13px] font-semibold">{children}</label>;
 }
 
-export function Chip({ ativo, onClick, children, title }: { ativo: boolean; onClick: () => void; children: ReactNode; title?: string }) {
+export function Chip({ ativo, onClick, children, title, destaque = false }: { ativo: boolean; onClick: () => void; children: ReactNode; title?: string; destaque?: boolean }) {
+  const on = destaque ? "border-roxo bg-roxo text-white" : "border-ink bg-ink text-white";
   return (
     <button type="button" aria-pressed={ativo} title={title} onClick={onClick}
-      className={`min-h-9 rounded-full border px-3 text-[13px] font-semibold ${ativo ? "border-ink bg-ink text-white" : "border-line bg-white text-body hover:bg-ground"}`}>
+      className={`min-h-9 rounded-full border px-3 text-[13px] font-semibold ${ativo ? on : "border-line bg-white text-body hover:bg-ground"}`}>
       {children}
     </button>
   );

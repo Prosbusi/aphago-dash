@@ -33,7 +33,7 @@ const loja = (id: string): Item[] => [
 const AREAS = [{ id: "geral", nome: "Geral" }, ...LOJAS.map((l) => ({ id: l.id, nome: l.nome })), { id: "time", nome: "Time" }];
 
 /** Cor de destaque por área: roxo na Aphago e no Geral, vinho na Abrasso. */
-const ACCENT: Record<string, CSSProperties> = {
+export const ACCENT: Record<string, CSSProperties> = {
   time: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
   geral: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
   aphago: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,

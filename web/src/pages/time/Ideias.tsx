@@ -5,6 +5,10 @@ import { dataCurta, emailAtual, useTabela, IDEIA_MARCAS, TEMAS, type Colecao, ty
 import { Card, Empty, ErrorBox, Loading, PageTitle } from "../../components/ui";
 import { CampoImagens, Chip, Miniaturas, RecadoBox, Rotulo, Texto, btnPrim, btnSec, inputCls, type Recado } from "../../components/time";
 import { FormProduto, produtoVazio } from "./Produtos";
+import { ACCENT } from "../../components/Layout";
+
+const LOJAS = [{ marca: "AP" as const, nome: "Aphago", area: "aphago" }, { marca: "AB" as const, nome: "Abrasso", area: "abrasso" }];
+const btnLoja = "min-h-10 rounded-lg bg-roxo px-4 text-sm font-semibold text-white hover:bg-roxo-escuro disabled:opacity-60";
 
 type Rascunho = { id?: string; marca: Ideia["marca"]; titulo: string; resumo: string; descricao: string; imagens: string[]; temas: string[] };
 
@@ -21,11 +25,15 @@ export function Ideias() {
   const [form, setForm] = useState<Rascunho | null>(null);
   const [converter, setConverter] = useState<Ideia | null>(null);
   const [tema, setTema] = useState("todos");
+  const [aba, setAba] = useState<"AP" | "AB">("AP");
+  const loja = LOJAS.find((l) => l.marca === aba)!;
   const [recado, setRecado] = useState<Recado>(null);
 
   const erro = ideias.error || produtos.error || modelos.error || colecoes.error || pessoas.error;
   const todosTemas = [...new Set([...TEMAS, ...(ideias.data ?? []).flatMap((i) => i.temas)])];
-  const lista = (ideias.data ?? []).filter((i) => tema === "todos" || i.temas.includes(tema));
+  // ideias "Ambas" aparecem nas duas abas
+  const daLoja = (ideias.data ?? []).filter((i) => i.marca === aba || i.marca === "BOTH");
+  const lista = daLoja.filter((i) => tema === "todos" || i.temas.includes(tema));
 
   const pronto = (texto: string, tipo: "ok" | "aviso" = "ok") => {
     setForm(null); setConverter(null); setRecado({ tipo, texto }); ideias.recarregar(); produtos.recarregar();
@@ -36,7 +44,7 @@ export function Ideias() {
       <PageTitle
         title="Chuva de ideias"
         sub="Ideias de produto do time; quando uma for para frente, vira produto com um clique"
-        right={!form && !converter && <button type="button" className={btnPrim} onClick={() => setForm({ marca: "AP", titulo: "", resumo: "", descricao: "", imagens: [], temas: [] })}>Nova ideia</button>}
+        right={!form && !converter && <button type="button" className={btnPrim} onClick={() => setForm({ marca: aba, titulo: "", resumo: "", descricao: "", imagens: [], temas: [] })}>Nova ideia</button>}
       />
       <RecadoBox recado={recado} onFechar={() => setRecado(null)} />
       {erro && <ErrorBox message={erro} />}
@@ -52,12 +60,24 @@ export function Ideias() {
 
       {!erro && !ideias.data && <Loading />}
       {ideias.data && (
-        <>
+        <div style={ACCENT[loja.area]} className="flex flex-col gap-4">
+          <div role="tablist" aria-label="Loja" className="flex gap-2">
+            {LOJAS.map((l) => {
+              const n = (ideias.data ?? []).filter((i) => i.marca === l.marca || i.marca === "BOTH").length;
+              return (
+                <button key={l.marca} role="tab" type="button" aria-selected={aba === l.marca} style={ACCENT[l.area]}
+                  onClick={() => { setAba(l.marca); setTema("todos"); }}
+                  className={`min-h-11 rounded-xl px-5 text-sm font-bold ${aba === l.marca ? "bg-roxo text-white" : "border border-line bg-white text-roxo-texto hover:bg-roxo-claro/40"}`}>
+                  {l.nome} · {n}
+                </button>
+              );
+            })}
+          </div>
           <div className="flex flex-wrap gap-2">
-            <Chip ativo={tema === "todos"} onClick={() => setTema("todos")}>Todas · {ideias.data.length}</Chip>
+            <Chip destaque ativo={tema === "todos"} onClick={() => setTema("todos")}>Todas · {daLoja.length}</Chip>
             {todosTemas.map((t) => {
-              const n = ideias.data!.filter((i) => i.temas.includes(t)).length;
-              return n > 0 ? <Chip key={t} ativo={tema === t} onClick={() => setTema(t)}>{t} · {n}</Chip> : null;
+              const n = daLoja.filter((i) => i.temas.includes(t)).length;
+              return n > 0 ? <Chip destaque key={t} ativo={tema === t} onClick={() => setTema(t)}>{t} · {n}</Chip> : null;
             })}
           </div>
           {lista.length === 0 ? <Card><Empty>Nenhuma ideia ainda.</Empty></Card> : (
@@ -70,7 +90,7 @@ export function Ideias() {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </>
   );
@@ -85,15 +105,15 @@ function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
   const resumo = resumoDe(i);
   const detalhes = i.titulo ? i.descricao.trim() : "";
   return (
-    <section className={`rounded-[14px] border bg-white ${i.produto_id ? "border-bom/50" : "border-line"}`}>
+    <section className={`rounded-[14px] border border-l-4 border-l-roxo bg-white ${i.produto_id ? "border-bom/50" : "border-line"}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-4 text-left">
-        <span aria-hidden="true" className="text-lg">💡</span>
+        <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-roxo-claro/60 text-base">💡</span>
         <span className="min-w-0 flex-auto">
           <span className="block font-semibold">{tituloDe(i)}</span>
           {resumo && <span className={`mt-0.5 block text-sm text-muted ${aberto ? "" : "line-clamp-1"}`}>{resumo}</span>}
         </span>
         {i.produto_id && <span className="hidden rounded-full bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-bom sm:inline">virou produto</span>}
-        <span className="shrink-0 text-sm text-body">{IDEIA_MARCAS[i.marca]}</span>
+        {i.marca === "BOTH" && <span className="shrink-0 text-xs font-semibold text-roxo-texto">{IDEIA_MARCAS[i.marca]}</span>}
         <span aria-hidden="true" className="text-muted">{aberto ? "▴" : "▾"}</span>
       </button>
       {aberto && (
@@ -105,7 +125,7 @@ function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
           <Miniaturas caminhos={i.imagens} />
           {detalhes && (
             <div>
-              <button type="button" className="text-[13px] font-semibold text-roxo underline" onClick={() => setPesquisa((v) => !v)}>
+              <button type="button" className="text-[13px] font-semibold text-roxo-texto underline" onClick={() => setPesquisa((v) => !v)}>
                 {pesquisa ? "esconder pesquisa completa" : "ver pesquisa completa"}
               </button>
               {pesquisa && <div className="mt-2 rounded-lg bg-ground p-3 text-[13px]"><Texto>{detalhes}</Texto></div>}
@@ -117,7 +137,7 @@ function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
             <span className="ml-auto">
               {i.produto_id
                 ? <span className="text-[13px] font-semibold text-bom">Virou produto{prod ? `: ${prod.codigo ? `${prod.codigo} · ` : ""}${prod.nome}` : ""}</span>
-                : <button type="button" className={btnPrim} onClick={onVirar}>Virar produto</button>}
+                : <button type="button" className={btnLoja} onClick={onVirar}>Virar produto</button>}
             </span>
           </div>
         </div>
