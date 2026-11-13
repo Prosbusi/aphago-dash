@@ -16,7 +16,7 @@ export type Produto = {
   cancelado: boolean; shopify_product_id: string | null; created_at: string;
 };
 export type Ideia = {
-  id: string; marca: "AP" | "AB" | "BOTH"; descricao: string; imagens: string[]; temas: string[];
+  id: string; marca: "AP" | "AB" | "BOTH"; titulo: string; resumo: string; descricao: string; imagens: string[]; temas: string[];
   produto_id: string | null; created_at: string;
 };
 

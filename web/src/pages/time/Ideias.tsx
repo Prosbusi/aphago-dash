@@ -6,7 +6,11 @@ import { Card, Empty, ErrorBox, Loading, PageTitle } from "../../components/ui";
 import { CampoImagens, Chip, Miniaturas, RecadoBox, Rotulo, Texto, btnPrim, btnSec, inputCls, type Recado } from "../../components/time";
 import { FormProduto, produtoVazio } from "./Produtos";
 
-type Rascunho = { id?: string; marca: Ideia["marca"]; descricao: string; imagens: string[]; temas: string[] };
+type Rascunho = { id?: string; marca: Ideia["marca"]; titulo: string; resumo: string; descricao: string; imagens: string[]; temas: string[] };
+
+/** Título e resumo da ideia; ideias antigas (só descrição) usam a 1ª e a 2ª linha. */
+const tituloDe = (i: Ideia) => i.titulo || i.descricao.split("\n")[0] || i.temas.join(", ");
+const resumoDe = (i: Ideia) => i.resumo || (i.titulo ? "" : i.descricao.split("\n").slice(1).join(" ").trim());
 
 export function Ideias() {
   const ideias = useTabela<Ideia>("ideias", "created_at", false);
@@ -32,7 +36,7 @@ export function Ideias() {
       <PageTitle
         title="Chuva de ideias"
         sub="Ideias de produto do time; quando uma for para frente, vira produto com um clique"
-        right={!form && !converter && <button type="button" className={btnPrim} onClick={() => setForm({ marca: "AP", descricao: "", imagens: [], temas: [] })}>Nova ideia</button>}
+        right={!form && !converter && <button type="button" className={btnPrim} onClick={() => setForm({ marca: "AP", titulo: "", resumo: "", descricao: "", imagens: [], temas: [] })}>Nova ideia</button>}
       />
       <RecadoBox recado={recado} onFechar={() => setRecado(null)} />
       {erro && <ErrorBox message={erro} />}
@@ -41,7 +45,7 @@ export function Ideias() {
       {converter && modelos.data && colecoes.data && pessoas.data && (
         <FormProduto
           ideia={converter} modelos={modelos.data} colecoes={colecoes.data} pessoas={pessoas.data}
-          inicial={{ ...produtoVazio(), marca: converter.marca === "AB" ? "AB" : "AP", descricao: converter.descricao, imagens: [...converter.imagens] }}
+          inicial={{ ...produtoVazio(), marca: converter.marca === "AB" ? "AB" : "AP", nome: tituloDe(converter), descricao: resumoDe(converter) || converter.descricao, imagens: [...converter.imagens] }}
           onModeloNovo={modelos.recarregar} onCancelar={() => setConverter(null)} onSalvo={pronto}
         />
       )}
@@ -57,33 +61,68 @@ export function Ideias() {
             })}
           </div>
           {lista.length === 0 ? <Card><Empty>Nenhuma ideia ainda.</Empty></Card> : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {lista.map((i) => {
-                const prod = (produtos.data ?? []).find((p) => p.id === i.produto_id);
-                return (
-                  <section key={i.id} className="flex flex-col gap-3 rounded-[14px] border border-line bg-white px-5 py-4">
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                      <span className="font-bold text-ink">{IDEIA_MARCAS[i.marca]}</span>
-                      {i.temas.map((t) => <span key={t} className="rounded-full bg-soft px-2 py-0.5 font-semibold text-body">{t}</span>)}
-                      <span className="ml-auto">{dataCurta(i.created_at.slice(0, 10))}</span>
-                    </div>
-                    {i.descricao && <Texto>{i.descricao}</Texto>}
-                    <Miniaturas caminhos={i.imagens} />
-                    <div className="mt-auto flex flex-wrap items-center gap-2">
-                      {i.produto_id
-                        ? <span className="text-[13px] font-semibold text-bom">Virou produto{prod ? `: ${prod.codigo ? `${prod.codigo} · ` : ""}${prod.nome}` : ""}</span>
-                        : <button type="button" className={btnPrim} onClick={() => { setForm(null); setConverter(i); }}>Transformar em produto</button>}
-                      <button type="button" className={btnSec} onClick={() => { setConverter(null); setForm({ id: i.id, marca: i.marca, descricao: i.descricao, imagens: i.imagens, temas: i.temas }); }}>Editar</button>
-                      <Apagar id={i.id} onApagado={() => pronto("Ideia apagada.")} />
-                    </div>
-                  </section>
-                );
-              })}
+            <div className="flex flex-col gap-3">
+              {lista.map((i) => (
+                <CartaoIdeia key={i.id} i={i} prod={(produtos.data ?? []).find((p) => p.id === i.produto_id)}
+                  onVirar={() => { setForm(null); setConverter(i); }}
+                  onEditar={() => { setConverter(null); setForm({ id: i.id, marca: i.marca, titulo: tituloDe(i), resumo: resumoDe(i), descricao: i.titulo ? i.descricao : "", imagens: i.imagens, temas: i.temas }); }}
+                  onApagado={() => pronto("Ideia apagada.")} />
+              ))}
             </div>
           )}
         </>
       )}
     </>
+  );
+}
+
+/** Linha recolhida como no Fazeno: título + como funciona; abre para imagens, pesquisa completa e ações. */
+function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
+  i: Ideia; prod?: Produto; onVirar: () => void; onEditar: () => void; onApagado: () => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [pesquisa, setPesquisa] = useState(false);
+  const resumo = resumoDe(i);
+  const detalhes = i.titulo ? i.descricao.trim() : "";
+  return (
+    <section className={`rounded-[14px] border bg-white ${i.produto_id ? "border-bom/50" : "border-line"}`}>
+      <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-4 text-left">
+        <span aria-hidden="true" className="text-lg">💡</span>
+        <span className="min-w-0 flex-auto">
+          <span className="block font-semibold">{tituloDe(i)}</span>
+          {resumo && <span className={`mt-0.5 block text-sm text-muted ${aberto ? "" : "line-clamp-1"}`}>{resumo}</span>}
+        </span>
+        {i.produto_id && <span className="hidden rounded-full bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-bom sm:inline">virou produto</span>}
+        <span className="shrink-0 text-sm text-body">{IDEIA_MARCAS[i.marca]}</span>
+        <span aria-hidden="true" className="text-muted">{aberto ? "▴" : "▾"}</span>
+      </button>
+      {aberto && (
+        <div className="flex flex-col gap-3 border-t border-soft px-5 py-4">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+            {i.temas.map((t) => <span key={t} className="rounded-full bg-soft px-2 py-0.5 font-semibold text-body">{t}</span>)}
+            <span className="ml-auto">{dataCurta(i.created_at.slice(0, 10))}</span>
+          </div>
+          <Miniaturas caminhos={i.imagens} />
+          {detalhes && (
+            <div>
+              <button type="button" className="text-[13px] font-semibold text-roxo underline" onClick={() => setPesquisa((v) => !v)}>
+                {pesquisa ? "esconder pesquisa completa" : "ver pesquisa completa"}
+              </button>
+              {pesquisa && <div className="mt-2 rounded-lg bg-ground p-3 text-[13px]"><Texto>{detalhes}</Texto></div>}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={btnSec} onClick={onEditar}>Editar</button>
+            <Apagar id={i.id} onApagado={onApagado} />
+            <span className="ml-auto">
+              {i.produto_id
+                ? <span className="text-[13px] font-semibold text-bom">Virou produto{prod ? `: ${prod.codigo ? `${prod.codigo} · ` : ""}${prod.nome}` : ""}</span>
+                : <button type="button" className={btnPrim} onClick={onVirar}>Virar produto</button>}
+            </span>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -107,10 +146,10 @@ function FormIdeia({ inicial, temas, onCancelar, onSalvo }: { inicial: Rascunho;
     e.preventDefault();
     const extra = outro.trim();
     const lista = extra && !f.temas.includes(extra) ? [...f.temas, extra] : f.temas;
-    if (!f.descricao.trim() && !f.imagens.length) { setErro("Adicione uma descrição ou imagem."); return; }
+    if (!f.titulo.trim()) { setErro("Dê um título para a ideia."); return; }
     if (!lista.length) { setErro("Escolha pelo menos um tema."); return; }
     setSalvando(true); setErro(null);
-    const campos = { marca: f.marca, descricao: f.descricao.trim(), imagens: f.imagens, temas: lista };
+    const campos = { marca: f.marca, titulo: f.titulo.trim(), resumo: f.resumo.trim(), descricao: f.descricao.trim(), imagens: f.imagens, temas: lista };
     const { error } = f.id
       ? await supabase.from("ideias").update(campos).eq("id", f.id)
       : await supabase.from("ideias").insert({ ...campos, criado_por: emailAtual(session.user.email) });
@@ -126,8 +165,16 @@ function FormIdeia({ inicial, temas, onCancelar, onSalvo }: { inicial: Rascunho;
           <div className="flex gap-2">{(["AP", "AB", "BOTH"] as const).map((m) => <Chip key={m} ativo={f.marca === m} onClick={() => setF({ ...f, marca: m })}>{IDEIA_MARCAS[m]}</Chip>)}</div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Rotulo htmlFor="i-desc">Descrição</Rotulo>
-          <textarea id="i-desc" rows={4} value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} className={`${inputCls} py-2`} />
+          <Rotulo htmlFor="i-tit">Título</Rotulo>
+          <input id="i-tit" value={f.titulo} onChange={(e) => setF({ ...f, titulo: e.target.value })} className={inputCls} placeholder="Ex.: Madrinha e Padrinho Club" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Rotulo htmlFor="i-res">Como funciona <span className="font-normal text-muted">· 1 ou 2 frases</span></Rotulo>
+          <textarea id="i-res" rows={2} value={f.resumo} onChange={(e) => setF({ ...f, resumo: e.target.value })} className={`${inputCls} py-2`} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Rotulo htmlFor="i-desc">Detalhes / pesquisa <span className="font-normal text-muted">· opcional, fica recolhido</span></Rotulo>
+          <textarea id="i-desc" rows={3} value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} className={`${inputCls} py-2`} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Rotulo>Imagens</Rotulo>

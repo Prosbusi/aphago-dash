@@ -158,7 +158,7 @@ function LojaGrok({ loja, integ, chaves, nova, onGerar, onDesativar, onSalvo }: 
 Endereço: ${API_URL}
 Sempre POST com JSON e o cabeçalho "Authorization: Bearer ${nova ?? "<chave da API>"}".
 Ações (campo "acao"):
-- nova_ideia {titulo, descricao, temas[], links[], imagens[]}: manda uma ideia pesquisada para a Chuva de ideias (imagens = links diretos de imagem).
+- nova_ideia {titulo, resumo, descricao, temas[], links[], imagens[]}: manda uma ideia para a Chuva de ideias. titulo = nome curto do produto; resumo = 1 ou 2 frases simples de como o produto funciona (é o que aparece na lista); descricao = pesquisa completa (fica recolhida); imagens = links diretos de imagem.
 - produtos {situacao: "andamento"}: lista os lançamentos aprovados.
 - ficha {codigo}: dados completos do produto aprovado (modelos com código e tags, cores, descrição e links das imagens de referência, válidos por 7 dias; abra e use as imagens).
 - marcar {codigo, itens[]}: marca etapas (customily.template, customily.options, customily.test, shopify.mockups, ads.images, ads.videos, ads.created).
