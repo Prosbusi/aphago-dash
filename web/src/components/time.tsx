@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CORES_ETIQUETA, enviarImagem, useImagens } from "../lib/time";
 
 const CORES_TEXTO: Record<string, string> = { red: "#dc2626", green: "#16a34a", blue: "#2563eb", yellow: "#b45309" };
@@ -62,24 +62,43 @@ export function CampoImagens({ valor, onChange }: { valor: string[]; onChange: (
   const ref = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const enviar = async (arquivos: FileList | null) => {
-    if (!arquivos?.length) return;
+  const atual = useRef(valor);
+  atual.current = valor;
+  const enviar = async (arquivos: File[]) => {
+    if (!arquivos.length) return;
     setEnviando(true); setErro(null);
     try {
       const novos: string[] = [];
-      for (const a of Array.from(arquivos)) novos.push(await enviarImagem(a));
-      onChange([...valor, ...novos]);
+      for (const a of arquivos) novos.push(await enviarImagem(a));
+      onChange([...atual.current, ...novos]);
     } catch (e) { setErro(e instanceof Error ? e.message : "Falha no envio"); }
     setEnviando(false);
   };
+  // ⌘V / Ctrl+V com imagem copiada (print, imagem do navegador, arquivo): entra direto no campo aberto
+  useEffect(() => {
+    const colar = (e: ClipboardEvent) => {
+      const imgs = Array.from(e.clipboardData?.items ?? [])
+        .filter((i) => i.kind === "file" && i.type.startsWith("image/"))
+        .map((i) => i.getAsFile())
+        .filter((f): f is File => !!f)
+        .map((f, k) => (f.name && f.name !== "image.png" ? f : new File([f], `colada-${Date.now()}-${k}.${f.type.split("/")[1] || "png"}`, { type: f.type })));
+      if (!imgs.length) return;
+      e.preventDefault();
+      enviar(imgs);
+    };
+    document.addEventListener("paste", colar);
+    return () => document.removeEventListener("paste", colar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div className="flex flex-col gap-2">
       <Miniaturas caminhos={valor} onRemover={(c) => onChange(valor.filter((x) => x !== c))} />
       <div>
-        <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { enviar(e.target.files); e.target.value = ""; }} />
+        <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { enviar(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
         <button type="button" disabled={enviando} onClick={() => ref.current?.click()} className="min-h-9 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold hover:bg-ground disabled:opacity-60">
           {enviando ? "Enviando…" : "Adicionar imagens"}
         </button>
+        <span className="ml-2 text-xs text-muted">ou cole com ⌘V</span>
         {erro && <span role="alert" className="ml-2 text-xs text-ruim">{erro}</span>}
       </div>
     </div>

@@ -3,7 +3,7 @@
 //
 // Ações (campo "acao"):
 //   ajuda                                   → esta lista
-//   nova_ideia      { titulo?, descricao, temas?[], links?[] }      → entra na Chuva de ideias
+//   nova_ideia      { titulo?, descricao, temas?[], links?[], imagens?[] } → entra na Chuva de ideias (imagens por link são baixadas)
 //   produtos        { situacao?: "andamento" | "concluido" | "todos" } → lançamentos da loja
 //   ficha           { codigo }              → ficha completa (modelos, códigos, tags, imagens com link de 7 dias)
 //   marcar          { codigo, itens[] }     → marca etapas do checklist (ver "itens" na ajuda)
@@ -28,7 +28,7 @@ const ITENS = {
 const AJUDA = {
   como_usar: "POST com JSON {\"acao\": \"...\"} e o cabeçalho Authorization: Bearer <chave>.",
   acoes: {
-    nova_ideia: "{ titulo?, descricao, temas?: string[], links?: string[] } → cria a ideia na Chuva de ideias da loja da chave",
+    nova_ideia: "{ titulo?, descricao, temas?: string[], links?: string[], imagens?: string[] (links de imagem, até 10) } → cria a ideia na Chuva de ideias da loja da chave",
     produtos: "{ situacao?: 'andamento' | 'concluido' | 'todos' } → lista os lançamentos (código, nome, prazo, etapas)",
     ficha: "{ codigo: 'AP0364' } → ficha do produto: modelos com código e tags, cores, descrição, imagens de referência",
     marcar: "{ codigo, itens: ['customily.template', …] } → marca etapas; versões são marcadas sozinhas quando o produto aparece na Shopify com a tag",
@@ -86,11 +86,23 @@ Deno.serve(async (req) => {
       const marca = loja === "*" ? String(body.loja ?? "").toLowerCase() === "abrasso" ? "AB" : "AP" : marcaDaLoja(loja);
       const partes = [body.titulo, body.descricao, ...(Array.isArray(body.links) ? body.links : [])].filter((x) => x && String(x).trim());
       if (!partes.length) throw new Error("Mande pelo menos a descrição da ideia");
+      // imagens por link: o Pharol baixa e guarda (o link original pode expirar)
+      const imagens: string[] = [];
+      for (const u of (Array.isArray(body.imagens) ? body.imagens : []).slice(0, 10)) {
+        try {
+          const r = await fetch(String(u));
+          const tipo = r.headers.get("content-type") ?? "";
+          if (!r.ok || !tipo.startsWith("image/")) continue;
+          const caminho = `${crypto.randomUUID()}.${tipo.split("/")[1].split(";")[0] || "png"}`;
+          const { error: up } = await supabase.storage.from("time").upload(caminho, await r.arrayBuffer(), { contentType: tipo });
+          if (!up) imagens.push(caminho);
+        } catch { /* imagem que não abriu fica de fora */ }
+      }
       const { data, error } = await supabase.from("ideias").insert({
-        marca, descricao: partes.join("\n"), temas: Array.isArray(body.temas) ? body.temas.map(String) : [], criado_por: "grok",
+        marca, descricao: partes.join("\n"), temas: Array.isArray(body.temas) ? body.temas.map(String) : [], imagens, criado_por: "grok",
       }).select("id").single();
       if (error) throw new Error(error.message);
-      r = { ok: true, ideia: data.id, mensagem: "Ideia na Chuva de ideias do Pharol, esperando aprovação." };
+      r = { ok: true, ideia: data.id, imagens_guardadas: imagens.length, mensagem: "Ideia na Chuva de ideias do Pharol, esperando aprovação." };
     } else if (acao === "produtos") {
       let q = supabase.from("produtos_criacao").select("id,codigo,marca,nome,prazo,checks,cancelado,created_at").order("created_at", { ascending: false }).limit(50);
       if (loja !== "*") q = q.eq("marca", marcaDaLoja(loja));
