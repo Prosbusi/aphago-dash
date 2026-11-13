@@ -29,12 +29,16 @@ export function GrokPainel({ p, setRecado, onRecarregar }: { p: Produto; setReca
     const { data: req, error } = await supabase.rpc("lancamento_enviar_grok", { p_id: p.id });
     if (error) { setEnviando(false); setRecado({ tipo: "erro", texto: error.message }); return; }
     // espera a resposta do webhook para mostrar se o Grok recebeu
-    let resp: { status?: number; erro?: string; corpo?: string } | null = null;
-    for (let i = 0; i < 6 && !resp; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const { data } = await supabase.rpc("grok_resposta", { p_req: req });
-      resp = data as typeof resp;
-    }
+    type Resp = { status?: number; erro?: string; corpo?: string };
+    const esperar = async (): Promise<Resp | null> => {
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const { data } = await supabase.rpc("grok_resposta", { p_req: req });
+        if (data) return data as Resp;
+      }
+      return null;
+    };
+    const resp = await esperar();
     setEnviando(false);
     onRecarregar();
     if (!resp) setRecado({ tipo: "aviso", texto: "Enviado. O Grok ainda não respondeu; confira no chat dele." });
