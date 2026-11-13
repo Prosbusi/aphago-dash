@@ -104,6 +104,8 @@ function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
   const [pesquisa, setPesquisa] = useState(false);
   const resumo = resumoDe(i);
   const detalhes = i.titulo ? i.descricao.trim() : "";
+  // links de referência (da pesquisa ou do resumo) aparecem logo na abertura
+  const links = [...new Set(`${i.resumo}\n${i.descricao}`.match(/https?:\/\/[^\s)<>"']+/g) ?? [])].map((u) => u.replace(/[.,;:]+$/, ""));
   return (
     <section className={`rounded-[14px] border border-l-4 border-l-roxo bg-white ${i.produto_id ? "border-bom/50" : "border-line"}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-4 text-left">
@@ -123,6 +125,20 @@ function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
             <span className="ml-auto">{dataCurta(i.created_at.slice(0, 10))}</span>
           </div>
           <Miniaturas caminhos={i.imagens} />
+          {links.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-muted">Referência{links.length > 1 ? "s" : ""}</div>
+              <ul className="m-0 mt-1 list-none space-y-1 p-0">
+                {links.map((u) => (
+                  <li key={u}>
+                    <a href={u} target="_blank" rel="noreferrer" className="break-all text-[13px] font-semibold text-roxo-texto underline">
+                      {u.replace(/^https?:\/\/(www\.)?/, "")}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {detalhes && (
             <div>
               <button type="button" className="text-[13px] font-semibold text-roxo-texto underline" onClick={() => setPesquisa((v) => !v)}>
