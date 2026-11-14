@@ -164,7 +164,9 @@ Ações (campo "acao"):
 - marcar {codigo, itens[]}: marca etapas (customily.template, customily.options, customily.test, shopify.mockups, ads.images, ads.videos, ads.created).
 - produto_criado {codigo}: avise depois de criar os produtos na Shopify.
 - conferir {codigo}: confere o que já está na Shopify e o que falta.
-Regras: cada modelo é um produto na Shopify com DUAS tags, a família (ex.: AB0123) e o modelo (ex.: AB0123-c). Nunca alterar o SKU. Anúncios levam o código da família entre parênteses no nome, ex.: "Criativo 03 (AB0123)". O código é sempre o que o Pharol mandou; nunca invente um.
+- buscar_codigo {url}: dá a família pelo link de destino de um anúncio (ou {busca: "nome do produto"}).
+- lista_codigos {}: todas as famílias da loja com os links dos produtos (para renomear muitos anúncios de uma vez).
+Regras: cada modelo é um produto na Shopify com DUAS tags, a família (ex.: AB0123) e o modelo (ex.: AB0123-c). Nunca alterar o SKU. Anúncios levam o código da família entre parênteses no nome, ex.: "Criativo 03 (AB0123)"; troque a tag antiga de 3 letras pela família; anúncio de coleção/home/vários produtos usa (ALL). O código é sempre o que o Pharol mandou; nunca invente um.
 Quando o Pharol mandar um POST na sua rotina com "origem": "pharol", é um produto aprovado: siga o "comando" e a "ficha".`;
 
   return (

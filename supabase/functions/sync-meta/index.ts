@@ -1,5 +1,5 @@
 // Coleta do investimento do Meta Ads -> ad_spend (platform = 'meta').
-// Corpo: { "store": "aphago" | "abrasso", "mode": "incremental" | "backfill" | "contas", "since"?: "2026-08-01", "restart"?: true }
+// Corpo: { "store": "aphago" | "abrasso", "mode": "incremental" | "backfill" | "contas" | "permissoes", "since"?: "2026-08-01", "restart"?: true }
 // incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, um dia por vez, guardando o cursor.
 // contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
@@ -130,6 +130,19 @@ Deno.serve(async (req) => {
     .filter(([k, v]) => k.startsWith("META_ACCESS_TOKEN_") && v)
     .map(([, v]) => v);
   if (!tokens.length) return Response.json({ store, error: "nenhum segredo META_ACCESS_TOKEN_* configurado" }, { status: 500 });
+
+  if (mode === "permissoes") {
+    // o que cada token pode fazer (ads_read = só leitura; ads_management = pode editar anúncios)
+    const out = [];
+    for (const t of tokens) {
+      try {
+        const me = await graph(`${GRAPH}/me?fields=id,name&access_token=${t}`);
+        const p = await graph(`${GRAPH}/me/permissions?access_token=${t}`);
+        out.push({ conta: me.name ?? me.id, permissoes: (p.data ?? []).filter((x: { status: string }) => x.status === "granted").map((x: { permission: string }) => x.permission) });
+      } catch (e) { out.push({ erro: String(e) }); }
+    }
+    return Response.json({ tokens: out });
+  }
 
   try {
     const vistas = new Map<string, { id: string; name: string; account_status: number; token: string }>();
