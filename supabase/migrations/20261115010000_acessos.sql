@@ -74,7 +74,7 @@ begin
                            'message_sends', 'vendas_diarias', 'gasto_historico', 'custos_marketing'] loop
     execute format('drop policy if exists "time le" on public.%I', t);
     execute format($p$create policy "time le" on public.%I for select to authenticated
-                     using ((select public.is_allowed()) and store = any ((select public.lojas_permitidas())))$p$, t);
+                     using ((select public.is_allowed()) and store = any ((select public.lojas_permitidas())::text[]))$p$, t);
   end loop;
 end
 $do$;
