@@ -1,36 +1,21 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useLastSync, useRefresh } from "../lib/data";
-import { LOJAS } from "../lib/store";
+import { AREAS, telaDaRota } from "../lib/acesso";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Marca } from "./Logo";
 import type { CSSProperties } from "react";
 
 type Item = { to: string; label: string; end?: boolean; fase?: string };
 
-const GERAL: Item[] = [
-  { to: "/geral", label: "Resumo", end: true },
-  { to: "/geral/links", label: "Links UTM" },
-  { to: "/geral/ajustes", label: "Ajustes" },
-];
-
-const TIME: Item[] = [
-  { to: "/time", label: "Tarefas", end: true },
-  { to: "/time/produtos", label: "Criação de produtos" },
-  { to: "/time/ideias", label: "Chuva de ideias" },
-  { to: "/time/grok", label: "Grok" },
-];
-
-const loja = (id: string): Item[] => [
-  { to: `/${id}`, label: "Visão geral", end: true },
-  { to: `/${id}/canais`, label: "Por canal" },
-  { to: `/${id}/produtos`, label: "Produtos" },
-  { to: `/${id}/jornada`, label: "Jornada" },
-  { to: `/${id}/retorno`, label: "Retorno" },
-  { to: `/${id}/lancamentos`, label: "Lançamentos" },
-];
-
-const AREAS = [{ id: "geral", nome: "Geral" }, ...LOJAS.map((l) => ({ id: l.id, nome: l.nome })), { id: "time", nome: "Time" }];
+/** Telas de cada área que a pessoa pode ver (admin vê todas, mais a tela de acessos). */
+function navDaArea(area: string, pode: (k: string) => boolean, admin: boolean, pendentes: number): Item[] {
+  const a = AREAS.find((x) => x.id === area);
+  const itens: Item[] = (a?.telas ?? []).filter((t) => pode(t.chave)).map((t) => ({ to: t.rota, label: t.nome, end: t.end }));
+  if (area === "geral" && admin) itens.push({ to: "/geral/acessos", label: "Acessos", fase: pendentes ? String(pendentes) : undefined });
+  return itens;
+}
 
 /** Cor de destaque por área: roxo na Aphago e no Geral, vinho na Abrasso. */
 export const ACCENT: Record<string, CSSProperties> = {
@@ -49,12 +34,21 @@ function ago(iso: string | null) {
 }
 
 export function Layout() {
-  const { session } = useAuth();
+  const { pathname } = useLocation();
+  const { session, pode, isAdmin } = useAuth();
+  const [pendentes, setPendentes] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    supabase.from("allowed_users").select("email", { count: "exact", head: true }).eq("status", "pendente").then(({ count }) => setPendentes(count ?? 0));
+  }, [isAdmin, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   const last = useLastSync();
   const refresh = useRefresh();
-  const { pathname } = useLocation();
   const area = pathname.split("/")[1] || "geral";
-  const nav = area === "geral" ? GERAL : area === "time" ? TIME : loja(area);
+  const nav = navDaArea(area, pode, isAdmin, pendentes);
+  const tela = telaDaRota(pathname);
+  const bloqueada = (tela && !pode(tela.chave)) || (pathname === "/geral/acessos" && !isAdmin);
+  const primeira = AREAS.flatMap((a) => a.telas).find((t) => pode(t.chave))?.rota ?? (isAdmin ? "/geral/acessos" : null);
+  const areas = AREAS.filter((a) => a.telas.some((t) => pode(t.chave)) || (a.id === "geral" && isAdmin));
   const inicial = (session.user.email ?? "?").slice(0, 1).toUpperCase();
 
   return (
@@ -63,10 +57,10 @@ export function Layout() {
         <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-3.5 sm:px-8">
           <Marca />
           <nav aria-label="Lojas" className="flex gap-1 rounded-[10px] border border-line bg-ground p-1">
-            {AREAS.map((a) => (
+            {areas.map((a) => (
               <NavLink
                 key={a.id}
-                to={`/${a.id}`}
+                to={a.telas.find((t) => pode(t.chave))?.rota ?? `/${a.id}`}
                 className={() =>
                   `min-h-9 rounded-[7px] px-3.5 py-2 text-[13px] font-bold no-underline ${area === a.id ? "bg-ink text-white" : "text-body hover:bg-white"}`
                 }
@@ -122,7 +116,13 @@ export function Layout() {
         </div>
       </header>
       <main className="mx-auto flex max-w-[1320px] flex-col gap-6 px-4 py-8 sm:px-8">
-        <Outlet />
+        {!bloqueada ? (
+          <Outlet />
+        ) : primeira && primeira !== pathname ? (
+          <Navigate to={primeira} replace />
+        ) : (
+          <p className="py-16 text-center text-sm text-muted">Nenhuma tela liberada para você ainda. Fale com um administrador.</p>
+        )}
       </main>
     </div>
   );

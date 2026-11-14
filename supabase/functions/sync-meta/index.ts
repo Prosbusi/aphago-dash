@@ -1,6 +1,7 @@
 // Coleta do investimento do Meta Ads -> ad_spend (platform = 'meta').
 // Corpo: { "store": "aphago" | "abrasso", "mode": "incremental" | "backfill" | "contas" | "permissoes", "since"?: "2026-08-01", "restart"?: true }
 // incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, um dia por vez, guardando o cursor.
+// historico: gasto diário por conta (since/until) em gasto_historico, para o comparativo com o ano anterior.
 // criativos: busca o link de destino dos anúncios sem destino (meta_anuncios); o incremental faz isso para os novos.
 // contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
@@ -225,6 +226,32 @@ Deno.serve(async (req) => {
       if (error) throw new Error(`anuncios_sem_destino: ${error.message}`);
       return await criativos(store, data ?? [], tokenDaConta);
     };
+
+    if (mode === "historico") {
+      // gasto diário por conta (sem detalhe de campanha) para o comparativo com o ano anterior → gasto_historico
+      const desdeH: string = body.since ?? "2025-01-01";
+      const ateH: string = body.until ?? "2026-07-31";
+      const contasLoja = [...vistas.values()].filter((c) => lojaDe.get(c.id)?.store === store);
+      const soma = new Map<string, number>();
+      for (const c of contasLoja) {
+        const params = new URLSearchParams({
+          level: "account", time_increment: "1", fields: "spend", limit: "500",
+          time_range: JSON.stringify({ since: desdeH, until: ateH }), access_token: c.token,
+        });
+        let url: string | null = `${GRAPH}/${c.id}/insights?${params}`;
+        while (url) {
+          const b = await graph(url);
+          for (const r of b.data) soma.set(r.date_start, (soma.get(r.date_start) ?? 0) + (Number(r.spend) || 0));
+          url = b.paging?.next ?? null;
+        }
+      }
+      const rows = [...soma.entries()].map(([dia, gasto]) => ({ store, dia, platform: "meta", gasto: Math.round(gasto * 100) / 100, atualizado_em: new Date().toISOString() }));
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await supabase.from("gasto_historico").upsert(rows.slice(i, i + 500), { onConflict: "store,dia,platform" });
+        if (error) throw new Error(`gasto_historico: ${error.message}`);
+      }
+      return Response.json({ store, mode, contas: contasLoja.map((c) => c.name), dias: rows.length, gasto: Math.round(rows.reduce((s, r) => s + r.gasto, 0)) });
+    }
 
     if (mode === "criativos") {
       // destino dos anúncios que ainda não têm: roda em lotes até acabar o tempo

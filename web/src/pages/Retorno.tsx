@@ -18,6 +18,7 @@ type Dia = { dia: string; meta: number; google: number; outros: number; faturame
 type Dados = {
   loja: { faturamento: number; pedidos: number };
   investimento: number;
+  marketing: { total: number; meta: number; google: number; outras_plataformas: number; email: number; push: number; outros: number };
   canais: Canal[]; campanhas: Campanha[]; posicionamentos: Posicionamento[]; anuncios: Anuncio[]; dias: Dia[];
 };
 
@@ -61,16 +62,18 @@ export function Retorno() {
 
   return (
     <>
-      <PageTitle title={`Retorno · ${nomeLoja(store)}`} sub={`${diaMes(period.start)} a ${diaMes(period.end)} · investimento em anúncios x vendas`} right={<PeriodPicker />} />
+      <PageTitle title={`Retorno · ${nomeLoja(store)}`} sub={`${diaMes(period.start)} a ${diaMes(period.end)} · investimento em marketing x vendas`} right={<PeriodPicker />} />
       {error && <ErrorBox message={error} />}
       {!data && !error && <Loading />}
-      {data && (data.investimento === 0 ? <Empty>Nenhum investimento em anúncios registrado neste período.</Empty> : <Conteudo d={data} />)}
+      {data && ((data.marketing?.total ?? data.investimento) === 0 ? <Empty>Nenhum investimento em anúncios registrado neste período.</Empty> : <Conteudo d={data} />)}
     </>
   );
 }
 
 function Conteudo({ d }: { d: Dados }) {
-  const roasLoja = roas(d.loja.faturamento, d.investimento);
+  const mkt = d.marketing?.total ?? d.investimento;
+  const roasLoja = roas(d.loja.faturamento, mkt);
+  const fixos = (d.marketing?.email ?? 0) + (d.marketing?.push ?? 0) + (d.marketing?.outros ?? 0);
   const [canalFiltro, setCanalFiltro] = useState<string>("todos");
   const campanhas = useMemo(() => d.campanhas.filter((c) => canalFiltro === "todos" || c.platform === canalFiltro), [d.campanhas, canalFiltro]);
   const plataformas = [...new Set(d.campanhas.map((c) => c.platform))];
@@ -81,10 +84,14 @@ function Conteudo({ d }: { d: Dados }) {
   return (
     <>
       <section aria-label="Indicadores" className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-        <Kpi label="Investimento em anúncios" value={money(d.investimento)} sub={d.loja.faturamento ? `${pct((d.investimento / d.loja.faturamento) * 100, 0)} do faturamento` : undefined} />
+        <Kpi
+          label="Investido em marketing"
+          value={money(mkt)}
+          sub={`anúncios ${money(d.investimento)}${d.marketing?.email ? ` · e-mail ${money(d.marketing.email)}` : ""}${d.marketing?.push ? ` · push ${money(d.marketing.push)}` : ""}${d.marketing?.outros ? ` · outros ${money(d.marketing.outros)}` : ""}${d.loja.faturamento ? ` · ${pct((mkt / d.loja.faturamento) * 100, 0)} do faturamento` : ""}`}
+        />
         <Kpi label="Faturamento da loja" value={money(d.loja.faturamento)} sub={`${num(d.loja.pedidos)} pedidos`} />
-        <Kpi label="ROAS da loja" value={fmtRoas(roasLoja)} sub={roasLoja ? `${money2(roasLoja)} vendidos por R$ 1 investido` : undefined} />
-        <Kpi label="Custo por pedido" value={d.loja.pedidos ? money2(d.investimento / d.loja.pedidos) : "—"} sub="investimento ÷ todos os pedidos" />
+        <Kpi label="Retorno real" value={fmtRoas(roasLoja)} sub={roasLoja ? `${money2(roasLoja)} vendidos por R$ 1 em marketing (anúncios, e-mail e push)` : undefined} />
+        <Kpi label="Custo por pedido" value={d.loja.pedidos ? money2(mkt / d.loja.pedidos) : "—"} sub="marketing ÷ todos os pedidos" />
       </section>
 
       <Card title="Por canal de anúncio">
@@ -167,7 +174,7 @@ function Conteudo({ d }: { d: Dados }) {
                   return <div key={x.dia} className={`flex-1 text-center text-[10.5px] font-semibold ${r >= roasLoja ? "text-bom" : "text-muted"}`}>{r ? dec(r, 1) : ""}</div>;
                 })}
               </div>
-              <p className="mb-0 mt-1 text-xs text-muted">Linha de baixo: ROAS da loja no dia (faturamento ÷ investimento). Em verde, os dias acima da média do período.</p>
+              <p className="mb-0 mt-1 text-xs text-muted">Linha de baixo: retorno real no dia (faturamento ÷ marketing). Em cinza, e-mail, push e outros custos{fixos ? "" : " (nenhum cadastrado no período)"}. Em verde, os dias acima da média do período.</p>
             </div>
           </div>
         </Card>

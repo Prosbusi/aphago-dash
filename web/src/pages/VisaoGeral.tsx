@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useDataVersion } from "../lib/data";
 import { usePeriod } from "../period-context";
 import { useStoreParam, nomeLoja } from "../lib/store";
 import { useDashData } from "../lib/data";
 import { byCanal, byDay, byProduto, kpis } from "../lib/agg";
 import { listDays } from "../lib/period";
-import { ddmm, delta, diaMes, money, money2, num, pct } from "../lib/format";
+import { ddmm, dec, delta, diaMes, money, money2, num, pct } from "../lib/format";
 import { Card, Empty, ErrorBox, GrupoTag, Kpi, Loading, PageTitle, ShareBar } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
 
@@ -12,6 +15,8 @@ export function VisaoGeral() {
   const { period } = usePeriod();
   const store = useStoreParam();
   const { data, error, loading } = useDashData(period, store);
+  const mk = useMarketing(store, period.start, period.end);
+  const mkAnt = useMarketing(store, period.prevStart, period.prevEnd);
 
   return (
     <>
@@ -22,12 +27,29 @@ export function VisaoGeral() {
       />
       {error && <ErrorBox message={error} />}
       {loading && !data && <Loading />}
-      {data && <Conteudo data={data} start={period.start} end={period.end} store={store} />}
+      {data && <Conteudo data={data} start={period.start} end={period.end} store={store} mk={mk} mkAnt={mkAnt} />}
     </>
   );
 }
 
-function Conteudo({ data, start, end, store }: { data: NonNullable<ReturnType<typeof useDashData>["data"]>; start: string; end: string; store: string }) {
+export type MkDia = { dia: string; meta: number; google: number; outras_plataformas: number; email: number; push: number; outros: number; total: number };
+
+/** Marketing por dia da loja: anúncios + e-mail + push + outros custos cadastrados. */
+export function useMarketing(store: string, inicio: string, fim: string) {
+  const v = useDataVersion();
+  const [dias, setDias] = useState<MkDia[] | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    setDias(null);
+    supabase.rpc("marketing_diario", { p_store: store, p_inicio: inicio, p_fim: fim }).then(({ data }) => {
+      if (vivo) setDias(((data ?? []) as MkDia[]).map((d) => ({ ...d, meta: +d.meta, google: +d.google, outras_plataformas: +d.outras_plataformas, email: +d.email, push: +d.push, outros: +d.outros, total: +d.total })));
+    });
+    return () => { vivo = false; };
+  }, [store, inicio, fim, v]);
+  return dias;
+}
+
+function Conteudo({ data, start, end, store, mk, mkAnt }: { data: NonNullable<ReturnType<typeof useDashData>["data"]>; start: string; end: string; store: string; mk: MkDia[] | null; mkAnt: MkDia[] | null }) {
   const k = kpis(data.orders);
   const kp = kpis(data.prevOrders);
   const dias = byDay(data.orders, listDays(start, end));
@@ -40,6 +62,15 @@ function Conteudo({ data, start, end, store }: { data: NonNullable<ReturnType<ty
     .reduce((s, c) => s + c.share, 0);
   const produtos = byProduto(data.items).slice(0, 6);
   const step = Math.max(1, Math.ceil(dias.length / 6));
+  const somaMk = (l: MkDia[] | null, k: keyof Omit<MkDia, "dia">) => (l ?? []).reduce((acc, d) => acc + d[k], 0);
+  const mkTotal = somaMk(mk, "total");
+  const mkTotalAnt = somaMk(mkAnt, "total");
+  const retorno = mkTotal > 0 ? k.fat / mkTotal : 0;
+  const retornoAnt = mkTotalAnt > 0 ? kp.fat / mkTotalAnt : 0;
+  const partes = ([["Meta", "meta"], ["Google", "google"], ["E-mail", "email"], ["Push", "push"], ["Outros", "outros"], ["Outras plataformas", "outras_plataformas"]] as const)
+    .map(([nome, chave]) => ({ nome, valor: somaMk(mk, chave) }))
+    .filter((p) => p.valor > 0);
+  const fatDia = new Map(dias.map((d) => [d.dia, d.fat]));
 
   return (
     <>
@@ -52,7 +83,62 @@ function Conteudo({ data, start, end, store }: { data: NonNullable<ReturnType<ty
           value={num(k.novos)}
           sub={k.ped ? `${pct((k.novos / k.ped) * 100, 0)} dos pedidos · ${num(k.ped - k.novos)} recompras` : undefined}
         />
+        <Kpi
+          label="Investido em marketing"
+          value={mk ? money(mkTotal) : "…"}
+          delta={mk && mkAnt ? delta(mkTotal, mkTotalAnt) : null}
+          invert
+          sub={partes.length ? partes.map((p) => `${p.nome} ${money(p.valor)}`).join(" · ") : undefined}
+        />
+        <Kpi
+          label="Retorno real"
+          value={retorno ? `${dec(retorno, 2)}x` : "—"}
+          delta={retorno && retornoAnt ? delta(retorno, retornoAnt) : null}
+          sub={retorno ? `${money2(retorno)} faturados por R$ 1 em marketing` : undefined}
+        />
       </section>
+
+      {mk && mkTotal > 0 && (
+        <Card title="Marketing por dia" extra="anúncios + e-mail + push + outros custos · retorno = faturamento ÷ marketing">
+          <div className="mt-3.5 overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-sm">
+              <thead>
+                <tr className="text-xs text-muted">
+                  <th scope="col" className="py-2 pr-2 text-left font-semibold">Dia</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Meta</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Google</th>
+                  <th scope="col" className="p-2 text-right font-semibold">E-mail</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Push</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Outros</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Marketing</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Faturamento</th>
+                  <th scope="col" className="py-2 pl-2 text-right font-semibold">Retorno</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...mk].reverse().map((d) => {
+                  const fat = fatDia.get(d.dia) ?? 0;
+                  const r = d.total > 0 ? fat / d.total : 0;
+                  return (
+                    <tr key={d.dia} className="border-t border-soft">
+                      <th scope="row" className="py-[9px] pr-2 text-left font-semibold">{ddmm(d.dia)}</th>
+                      <td className="p-2 text-right">{money(d.meta)}</td>
+                      <td className="p-2 text-right">{money(d.google)}</td>
+                      <td className="p-2 text-right">{d.email ? money(d.email) : "—"}</td>
+                      <td className="p-2 text-right">{d.push ? money(d.push) : "—"}</td>
+                      <td className="p-2 text-right">{d.outros + d.outras_plataformas ? money(d.outros + d.outras_plataformas) : "—"}</td>
+                      <td className="p-2 text-right font-bold">{money(d.total)}</td>
+                      <td className="p-2 text-right">{money(fat)}</td>
+                      <td className={`py-2 pl-2 text-right font-bold ${r && r >= retorno ? "text-bom" : ""}`}>{r ? `${dec(r, 2)}x` : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mb-0 mt-3 text-xs text-muted">E-mail, push e outros custos fixos entram pelo valor mensal cadastrado em Geral → Ajustes, dividido pelos dias do mês. Em verde, os dias com retorno acima da média do período.</p>
+        </Card>
+      )}
 
       {dias.length > 1 && (
         <Card

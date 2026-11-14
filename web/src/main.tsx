@@ -14,6 +14,8 @@ import { Ajustes } from "./pages/Ajustes";
 import { Links } from "./pages/Links";
 import { Retorno } from "./pages/Retorno";
 import { Lancamentos } from "./pages/Lancamentos";
+import { Projecao } from "./pages/Projecao";
+import { Acessos } from "./pages/Acessos";
 import { LOJAS } from "./lib/store";
 import { Tarefas } from "./pages/time/Tarefas";
 import { Produtos as ProdutosCriacao } from "./pages/time/Produtos";
@@ -37,6 +39,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="geral" element={<Resumo />} />
               <Route path="geral/links" element={<Links />} />
               <Route path="geral/ajustes" element={<Ajustes />} />
+              <Route path="geral/acessos" element={<Acessos />} />
               {/* endereços antigos */}
               <Route path="links" element={<Navigate to="/geral/links" replace />} />
               <Route path="ajustes" element={<Navigate to="/geral/ajustes" replace />} />
@@ -45,6 +48,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="time/ideias" element={<Ideias />} />
               <Route path="time/grok" element={<GrokConfig />} />
               <Route path=":store" element={<LojaValida><VisaoGeral /></LojaValida>} />
+              <Route path=":store/projecao" element={<LojaValida><Projecao /></LojaValida>} />
               <Route path=":store/canais" element={<LojaValida><PorCanal /></LojaValida>} />
               <Route path=":store/produtos" element={<LojaValida><Produtos /></LojaValida>} />
               <Route path=":store/jornada" element={<LojaValida><Jornada /></LojaValida>} />

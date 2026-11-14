@@ -4,6 +4,7 @@ import { clearDataCache } from "../lib/data";
 import { addDays, todaySP } from "../lib/period";
 import { num } from "../lib/format";
 import { Card, Empty, ErrorBox, Loading, PageTitle } from "../components/ui";
+import { CustosMarketing } from "../components/CustosMarketing";
 
 type Regra = { source: string; medium: string; canal: string; grupo: string };
 const GRUPOS = ["pago", "organico", "mensagem", "direto", "sem utm"] as const;
@@ -65,7 +66,8 @@ export function Ajustes() {
 
   return (
     <>
-      <PageTitle title="Ajustes" sub="Tradução de UTMs em canais. Uma mudança aqui reclassifica todo o histórico." />
+      <PageTitle title="Ajustes" sub="Custos de marketing e tradução de UTMs em canais. Uma mudança nas regras reclassifica todo o histórico." />
+      <CustosMarketing />
       {erro && <ErrorBox message={erro} />}
 
       <Card title="Não classificados" extra="visitas dos últimos 90 dias">
