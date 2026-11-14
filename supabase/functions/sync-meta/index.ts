@@ -1,6 +1,7 @@
 // Coleta do investimento do Meta Ads -> ad_spend (platform = 'meta').
 // Corpo: { "store": "aphago" | "abrasso", "mode": "incremental" | "backfill" | "contas" | "permissoes", "since"?: "2026-08-01", "restart"?: true }
 // incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, um dia por vez, guardando o cursor.
+// criativos: busca o link de destino dos anúncios sem destino (meta_anuncios); o incremental faz isso para os novos.
 // contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
 // A loja de cada conta vem da tabela ad_accounts: um token pode enxergar contas das duas lojas,
@@ -112,6 +113,69 @@ async function gravar(store: string, conta: string, desde: string, ate: string, 
   }
 }
 
+// Link de destino do criativo: produto (/products/<handle>), coleção ou home.
+// deno-lint-ignore no-explicit-any
+function linkDoCriativo(c: any): string | null {
+  const s = c?.object_story_spec;
+  const f = c?.asset_feed_spec;
+  const candidatos = [
+    s?.link_data?.link,
+    s?.link_data?.call_to_action?.value?.link,
+    s?.video_data?.call_to_action?.value?.link,
+    s?.template_data?.link,
+    f?.link_urls?.[0]?.website_url,
+    c?.link_url,
+    c?.object_url,
+  ];
+  for (const l of candidatos) if (typeof l === "string" && /^https?:\/\//i.test(l) && !/facebook\.com|instagram\.com|fb\.me/i.test(l)) return l;
+  return null;
+}
+
+// Busca o destino de anúncios (até 50 por chamada) e grava em meta_anuncios.
+async function criativos(store: string, lista: { ad_id: string; account_id: string }[], tokenDaConta: (conta: string) => string | undefined) {
+  let gravados = 0, comLink = 0;
+  for (let i = 0; i < lista.length; i += 50) {
+    const lote = lista.slice(i, i + 50);
+    const porToken = new Map<string, typeof lote>();
+    const semToken = [];
+    for (const a of lote) {
+      const t = tokenDaConta(`act_${a.account_id}`);
+      if (!t) { semToken.push({ ad_id: a.ad_id, store, account_id: a.account_id, nome: null, link: null }); continue; }
+      porToken.set(t, [...(porToken.get(t) ?? []), a]);
+    }
+    // conta que o token não enxerga mais: registra sem link para não tentar de novo a cada rodada
+    if (semToken.length) {
+      const { error } = await supabase.from("meta_anuncios").upsert(semToken, { onConflict: "ad_id" });
+      if (error) throw new Error(`meta_anuncios: ${error.message}`);
+      gravados += semToken.length;
+    }
+    for (const [t, ads] of porToken) {
+      const fields = "name,creative{object_story_spec,asset_feed_spec,link_url,object_url}";
+      // deno-lint-ignore no-explicit-any
+      let b: any = {};
+      try {
+        b = await graph(`${GRAPH}/?ids=${ads.map((a) => a.ad_id).join(",")}&fields=${encodeURIComponent(fields)}&access_token=${t}`);
+      } catch (_) {
+        // um anúncio apagado derruba o lote: tenta um a um
+        for (const a of ads) {
+          try { b[a.ad_id] = await graph(`${GRAPH}/${a.ad_id}?fields=${encodeURIComponent(fields)}&access_token=${t}`); }
+          catch (_) { b[a.ad_id] = null; }
+        }
+      }
+      const rows = ads.map((a) => {
+        const ad = b[a.ad_id];
+        const link = ad ? linkDoCriativo(ad.creative) : null;
+        if (link) comLink++;
+        return { ad_id: a.ad_id, store, account_id: a.account_id, nome: ad?.name ?? null, link, atualizado_em: new Date().toISOString() };
+      });
+      const { error } = await supabase.from("meta_anuncios").upsert(rows, { onConflict: "ad_id" });
+      if (error) throw new Error(`meta_anuncios: ${error.message}`);
+      gravados += rows.length;
+    }
+  }
+  return { gravados, comLink };
+}
+
 async function authorized(req: Request): Promise<boolean> {
   const key = req.headers.get("x-sync-key");
   if (!key) return false;
@@ -155,6 +219,24 @@ Deno.serve(async (req) => {
       });
     }
     const ativas = [...vistas.values()].filter((c) => c.account_status === 1 && lojaDe.get(c.id)?.store === store && lojaDe.get(c.id)?.ativo);
+    const tokenDaConta = (conta: string) => vistas.get(conta)?.token;
+    const destinos = async (limite: number) => {
+      const { data, error } = await supabase.rpc("anuncios_sem_destino", { p_store: store, p_limite: limite });
+      if (error) throw new Error(`anuncios_sem_destino: ${error.message}`);
+      return await criativos(store, data ?? [], tokenDaConta);
+    };
+
+    if (mode === "criativos") {
+      // destino dos anúncios que ainda não têm: roda em lotes até acabar o tempo
+      let gravados = 0, comLink = 0;
+      while (Date.now() - started < TIME_BUDGET_MS) {
+        const r = await destinos(200);
+        gravados += r.gravados; comLink += r.comLink;
+        if (r.gravados === 0) break;
+      }
+      const { data: falta } = await supabase.rpc("anuncios_sem_destino", { p_store: store, p_limite: 100000 });
+      return Response.json({ store, mode, gravados, comLink, faltam: falta?.length ?? 0 });
+    }
 
     const hoje = isoSP(new Date());
     let desde: string;
@@ -183,6 +265,10 @@ Deno.serve(async (req) => {
         await supabase.from("sync_state").upsert({ source: fonte, cursor: done ? "fim" : desde, last_run_at: new Date().toISOString() });
       }
       if (done) break;
+    }
+    // anúncios novos: guarda o link de destino (usado quando o nome não tem código)
+    if (mode === "incremental" && Date.now() - started < TIME_BUDGET_MS + 20_000) {
+      try { await destinos(100); } catch (e) { console.error(e); }
     }
     await supabase.from("sync_log").insert({ source: fonte, rows_read: total, status: done ? "ok" : "parcial" });
     return Response.json({ store, mode, contas: ativas.map((c) => `${c.name} (${c.id})`), linhas: total, done });
