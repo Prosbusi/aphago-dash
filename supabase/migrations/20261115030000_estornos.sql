@@ -108,3 +108,25 @@ $$;
 
 -- recarrega o histórico com a nova regra (vendas originais + estornos no dia do estorno)
 delete from public.sync_state where source like 'vendas_diarias_hist:%';
+
+-- Pedido não pago (Pix aguardando ou expirado, boleto, autorizado) fica fora de todas as telas.
+do $do$
+declare d text;
+begin
+  d := pg_get_viewdef('public.v_orders'::regclass);
+  d := replace(d, 'WHERE (o.cancelled_at IS NULL);', $w$WHERE ((o.cancelled_at IS NULL) AND (o.financial_status = ANY (ARRAY['PAID'::text, 'PARTIALLY_REFUNDED'::text])));$w$);
+  if position('PARTIALLY_REFUNDED' in d) = 0 then raise exception 'v_orders: trecho não encontrado'; end if;
+  execute 'create or replace view public.v_orders with (security_invoker = true) as ' || d;
+end
+$do$;
+
+do $do$
+declare d text;
+begin
+  d := pg_get_functiondef('public.catalogo_familias(text, date, date)'::regprocedure);
+  d := replace(d, 'where o.store = p_store and o.cancelled_at is null',
+                  $w$where o.store = p_store and o.cancelled_at is null and o.financial_status in ('PAID', 'PARTIALLY_REFUNDED')$w$);
+  if position($w$'PARTIALLY_REFUNDED')$w$ in d) = 0 then raise exception 'catalogo_familias: trecho não encontrado'; end if;
+  execute d;
+end
+$do$;
