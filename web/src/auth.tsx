@@ -86,7 +86,7 @@ function Login() {
   const [msg, setMsg] = useState("");
 
   const google = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: redirectTo() } });
+    const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: redirectTo(), queryParams: { prompt: "select_account" } } });
     if (error) { setStatus("error"); setMsg("Login com Google ainda não está ativado. Use o link por e-mail."); }
   };
 

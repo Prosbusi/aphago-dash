@@ -70,7 +70,7 @@ export function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-muted" aria-live="polite">
+            <span className="hidden text-xs text-muted sm:inline" aria-live="polite">
               {refresh.state === "running" ? "Buscando dados novos…" : refresh.state === "recent" ? "Atualizado há instantes" : refresh.state === "error" ? "Não deu para atualizar" : ago(last)}
             </span>
             <button
@@ -86,14 +86,29 @@ export function Layout() {
               </svg>
               Atualizar
             </button>
-            <button
-              type="button"
-              title={`${session.user.email} · clique para sair`}
-              aria-label={`Sair da conta ${session.user.email}`}
-              onClick={() => supabase.auth.signOut()}
-              className="h-9 w-9 rounded-full border border-[#D6D1C7] bg-ground text-[13px] font-bold"
+            <span
+              title={session.user.email ?? ""}
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D6D1C7] bg-ground text-[13px] font-bold"
             >
               {inicial}
+            </span>
+            <span className="hidden max-w-[200px] truncate text-xs text-muted lg:inline">{session.user.email}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.reload();
+              }}
+              aria-label={`Sair da conta ${session.user.email}`}
+              className="flex min-h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] font-semibold text-body hover:bg-ground"
+            >
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
+              Sair
             </button>
           </div>
         </div>
