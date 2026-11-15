@@ -32,7 +32,7 @@ function Conteudo({ d }: { d: Cat }) {
     const val = (f: FamiliaCat) =>
       ordem === "roas" ? roas(f.receita, f.gasto) ?? -1 : ordem === "cac" ? (f.unidades ? f.gasto / f.unidades : Infinity) : f[ordem];
     return d.familias
-      .filter((f) => todos || f.gasto > 0)
+      .filter((f) => todos || f.gasto > 0 || f.anuncios_ligados > 0)
       .filter((f) => !q || `${f.familia} ${f.nome}`.toLowerCase().includes(q))
       .sort((a, b) => (ordem === "cac" ? val(a) - val(b) : val(b) - val(a)));
   }, [d.familias, ordem, busca, todos]);
@@ -81,7 +81,10 @@ function Conteudo({ d }: { d: Cat }) {
                 <tr className="text-left text-xs text-muted">
                   <th scope="col" className="py-2 pr-2 font-semibold">Família</th>
                   <th scope="col" className="p-2 font-semibold">Produto</th>
-                  <th scope="col" className={th}>Anúncios</th>
+                  <th scope="col" className={th}>
+                    <abbr title="Anúncios com gasto no período / anúncios ligados agora no Meta" className="no-underline">Anúncios</abbr>
+                    <span className="block text-[11px] font-medium">com gasto / ligados</span>
+                  </th>
                   <th scope="col" className={`${th} w-[13%]`}>Investimento</th>
                   <th scope="col" className={th}>Cliques</th>
                   <th scope="col" className={th}>Compras Meta</th>
@@ -117,7 +120,16 @@ function Conteudo({ d }: { d: Cat }) {
                             </div>
                           </div>
                         </td>
-                        <td className="p-2 text-right">{f.anuncios || "—"}</td>
+                        <td className="p-2 text-right">
+                          {f.anuncios || f.anuncios_ligados ? (
+                            <span
+                              title={f.anuncios_ligados > f.anuncios ? `${f.anuncios_ligados - f.anuncios} anúncio(s) ligado(s) sem gasto no período: o Meta não está entregando` : `${f.anuncios} com gasto no período, ${f.anuncios_ligados} ligado(s) agora`}
+                              className={`whitespace-nowrap ${f.anuncios_ligados > f.anuncios ? "font-bold text-ruim" : ""}`}
+                            >
+                              {f.anuncios} / {f.anuncios_ligados}
+                            </span>
+                          ) : "—"}
+                        </td>
                         <td className="p-2">
                           <div className="flex items-center gap-2">
                             <ShareBar value={f.gasto} max={maxGasto} />

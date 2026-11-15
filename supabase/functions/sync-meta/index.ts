@@ -3,6 +3,7 @@
 // incremental (padrão): reenvia os últimos 3 dias. backfill: desde `since`, um dia por vez, guardando o cursor.
 // historico: gasto diário por conta (since/until) em gasto_historico, para o comparativo com o ano anterior.
 // criativos: busca o link de destino dos anúncios sem destino (meta_anuncios); o incremental faz isso para os novos.
+// ligados: atualiza quais anúncios estão ligados agora (o incremental também faz).
 // contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
 // A loja de cada conta vem da tabela ad_accounts: um token pode enxergar contas das duas lojas,
@@ -141,7 +142,7 @@ async function criativos(store: string, lista: { ad_id: string; account_id: stri
     const semToken = [];
     for (const a of lote) {
       const t = tokenDaConta(`act_${a.account_id}`);
-      if (!t) { semToken.push({ ad_id: a.ad_id, store, account_id: a.account_id, nome: null, link: null }); continue; }
+      if (!t) { semToken.push({ ad_id: a.ad_id, store, account_id: a.account_id, nome: null, link: null, destino_em: new Date().toISOString() }); continue; }
       porToken.set(t, [...(porToken.get(t) ?? []), a]);
     }
     // conta que o token não enxerga mais: registra sem link para não tentar de novo a cada rodada
@@ -167,7 +168,8 @@ async function criativos(store: string, lista: { ad_id: string; account_id: stri
         const ad = b[a.ad_id];
         const link = ad ? linkDoCriativo(ad.creative) : null;
         if (link) comLink++;
-        return { ad_id: a.ad_id, store, account_id: a.account_id, nome: ad?.name ?? null, link, atualizado_em: new Date().toISOString() };
+        const agora = new Date().toISOString();
+        return { ad_id: a.ad_id, store, account_id: a.account_id, nome: ad?.name ?? null, link, atualizado_em: agora, destino_em: agora };
       });
       const { error } = await supabase.from("meta_anuncios").upsert(rows, { onConflict: "ad_id" });
       if (error) throw new Error(`meta_anuncios: ${error.message}`);
@@ -175,6 +177,33 @@ async function criativos(store: string, lista: { ad_id: string; account_id: stri
     }
   }
   return { gravados, comLink };
+}
+
+// Anúncios ligados agora (anúncio, conjunto e campanha ativos) nas contas da loja → meta_anuncios.ligado.
+async function ligados(store: string, contas: { id: string; token: string }[]) {
+  let n = 0;
+  for (const c of contas) {
+    const ids: { ad_id: string; store: string; account_id: string; nome: string; ligado: boolean; atualizado_em: string }[] = [];
+    const params = new URLSearchParams({
+      fields: "id,name", limit: "500", access_token: c.token,
+      filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }]),
+    });
+    let url: string | null = `${GRAPH}/${c.id}/ads?${params}`;
+    while (url) {
+      const b = await graph(url);
+      for (const ad of b.data) ids.push({ ad_id: ad.id, store, account_id: c.id.replace(/^act_/, ""), nome: ad.name, ligado: true, atualizado_em: new Date().toISOString() });
+      url = b.paging?.next ?? null;
+    }
+    const conta = c.id.replace(/^act_/, "");
+    const { error: e1 } = await supabase.from("meta_anuncios").update({ ligado: false }).eq("account_id", conta).eq("ligado", true);
+    if (e1) throw new Error(`meta_anuncios: ${e1.message}`);
+    for (let i = 0; i < ids.length; i += 500) {
+      const { error } = await supabase.from("meta_anuncios").upsert(ids.slice(i, i + 500), { onConflict: "ad_id" });
+      if (error) throw new Error(`meta_anuncios: ${error.message}`);
+    }
+    n += ids.length;
+  }
+  return n;
 }
 
 async function authorized(req: Request): Promise<boolean> {
@@ -253,6 +282,11 @@ Deno.serve(async (req) => {
       return Response.json({ store, mode, contas: contasLoja.map((c) => c.name), dias: rows.length, gasto: Math.round(rows.reduce((s, r) => s + r.gasto, 0)) });
     }
 
+    if (mode === "ligados") {
+      const n = await ligados(store, ativas);
+      return Response.json({ store, mode, ligados: n, destinos: await destinos(200) });
+    }
+
     if (mode === "criativos") {
       // destino dos anúncios que ainda não têm: roda em lotes até acabar o tempo
       let gravados = 0, comLink = 0;
@@ -293,8 +327,9 @@ Deno.serve(async (req) => {
       }
       if (done) break;
     }
-    // anúncios novos: guarda o link de destino (usado quando o nome não tem código)
+    // anúncios ligados agora e link de destino dos novos (usado quando o nome não tem código)
     if (mode === "incremental" && Date.now() - started < TIME_BUDGET_MS + 20_000) {
+      try { await ligados(store, ativas); } catch (e) { console.error(e); }
       try { await destinos(100); } catch (e) { console.error(e); }
     }
     await supabase.from("sync_log").insert({ source: fonte, rows_read: total, status: done ? "ok" : "parcial" });

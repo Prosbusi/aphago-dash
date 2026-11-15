@@ -5,7 +5,7 @@ import { useDataVersion } from "./data";
 // Catálogo por família de produto (função catalogo_familias no banco).
 
 export type FamiliaCat = {
-  familia: string; nome: string; imagem: string | null; modelos: string; anuncios: number; gasto: number; cliques: number;
+  familia: string; nome: string; imagem: string | null; modelos: string; anuncios: number; anuncios_ligados: number; gasto: number; cliques: number;
   impressoes: number; compras_meta: number; receita_meta: number; unidades: number; receita: number; pedidos: number; pedidos_novos: number;
 };
 export type ProdutoCat = {
@@ -49,7 +49,7 @@ export function useCatalogo(store: string, inicio: string, fim: string) {
       const n = (x: unknown) => Number(x) || 0;
       d.familias = d.familias.map((f) => ({
         ...f, gasto: n(f.gasto), receita: n(f.receita), unidades: n(f.unidades), cliques: n(f.cliques), impressoes: n(f.impressoes),
-        compras_meta: n(f.compras_meta), receita_meta: n(f.receita_meta), pedidos: n(f.pedidos), pedidos_novos: n(f.pedidos_novos), anuncios: n(f.anuncios),
+        compras_meta: n(f.compras_meta), receita_meta: n(f.receita_meta), pedidos: n(f.pedidos), pedidos_novos: n(f.pedidos_novos), anuncios: n(f.anuncios), anuncios_ligados: n(f.anuncios_ligados),
       }));
       for (const k of Object.keys(d.totais) as (keyof Catalogo["totais"])[]) d.totais[k] = n(d.totais[k]);
       d.modelos = d.modelos.map((m) => ({ ...m, receita: n(m.receita), unidades: n(m.unidades) }));
