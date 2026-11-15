@@ -4,7 +4,7 @@ import { useDataVersion } from "../lib/data";
 import { supabase } from "../lib/supabase";
 import { delta, diaMes, money, num } from "../lib/format";
 import { ACCENT } from "../components/Layout";
-import { ErrorBox, Kpi, Loading, PageTitle } from "../components/ui";
+import { ErrorBox, Loading, PageTitle } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
 
 type Valores = { vendas: number; estornos: number; pedidos: number; itens: number; custo: number; marketing: number; lucro: number };
@@ -17,15 +17,51 @@ const somar = (l: Valores[]): Valores =>
     custo: a.custo + +b.custo, marketing: a.marketing + +b.marketing, lucro: a.lucro + +b.lucro,
   }), { vendas: 0, estornos: 0, pedidos: 0, itens: 0, custo: 0, marketing: 0, lucro: 0 });
 
-/** As quatro métricas do painel, com a variação contra o período anterior. */
-function Metricas({ a, p }: { a: Valores; p: Valores }) {
-  const retorno = a.marketing > 0 ? a.vendas / a.marketing : 0;
+type Tom = "neutro" | "bom" | "ruim" | "aphago" | "abrasso";
+const TOM: Record<Tom, string> = {
+  neutro: "border-line bg-white",
+  bom: "border-bom/60 bg-[#EAF5EF]",
+  ruim: "border-ruim/50 bg-[#FBECEA]",
+  aphago: "border-aphago/70 bg-[#F4ECFD]",
+  abrasso: "border-abrasso/60 bg-[#F8EAEC]",
+};
+
+/** Quadro do painel: valor grande, nome embaixo com explicação no (?), variação contra o período anterior. */
+function Quadro({ valor, nome, ajuda, variacao, inverter = false, tom = "neutro" }: {
+  valor: string; nome: string; ajuda: string; variacao?: number | null; inverter?: boolean; tom?: Tom;
+}) {
+  const bom = variacao != null && (inverter ? variacao <= 0 : variacao >= 0);
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Kpi label="Total vendido" value={money(a.vendas)} delta={delta(a.vendas, p.vendas)} sub={`vs. ${money(p.vendas)}${a.estornos ? ` · já sem ${money(a.estornos)} de estornos` : ""}`} />
-      <Kpi label="Pedidos (itens)" value={`${num(a.pedidos)} (${num(a.itens)})`} delta={delta(a.pedidos, p.pedidos)} sub={`vs. ${num(p.pedidos)} (${num(p.itens)} itens)`} />
-      <Kpi label="Marketing" value={money(a.marketing)} delta={delta(a.marketing, p.marketing)} invert sub={retorno ? `retorno ${retorno.toFixed(2).replace(".", ",")}x · vs. ${money(p.marketing)}` : `vs. ${money(p.marketing)}`} />
-      <Kpi label="Lucro" value={money(a.lucro)} delta={p.lucro ? delta(a.lucro, p.lucro) : null} sub={`vs. ${money(p.lucro)}${a.vendas ? ` · margem ${((a.lucro / a.vendas) * 100).toFixed(0)}%` : ""}`} />
+    <div className={`rounded-[16px] border-2 px-4 py-4 sm:px-5 ${TOM[tom]}`}>
+      <div className="text-[22px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{valor}</div>
+      <div className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-muted sm:text-sm">
+        {nome}
+        <span title={ajuda} aria-label={ajuda} role="img" className="inline-flex h-[18px] w-[18px] shrink-0 cursor-help items-center justify-center rounded-full border border-current text-[11px] font-bold">?</span>
+      </div>
+      {variacao != null && (
+        <div className={`mt-1 text-xs font-bold ${bom ? "text-bom" : "text-ruim"}`}>
+          {variacao >= 0 ? "▲" : "▼"} {Math.abs(variacao).toFixed(1).replace(".", ",")}% <span className="font-medium text-muted">vs. período anterior</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const AJUDA = {
+  vendido: "Pedidos pagos no dia do pedido, menos os estornos feitos no período (no dia em que aconteceram).",
+  pedidos: "Pedidos pagos no período e, entre parênteses, a quantidade de itens vendidos.",
+  marketing: "Meta, Google e outras plataformas, mais e-mail, push e outros custos cadastrados em Ajustes.",
+  lucro: "Vendas − custo dos produtos − marketing − imposto sobre o Meta (13,82%) − gateway (3,5%) − apps (5%) − imposto (14% do lucro bruto).",
+};
+
+/** As quatro métricas em duas colunas. */
+function Metricas({ a, p, tomLucro = "neutro" }: { a: Valores; p: Valores; tomLucro?: Tom }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <Quadro valor={money(a.vendas)} nome="Total vendido" ajuda={AJUDA.vendido} variacao={delta(a.vendas, p.vendas)} />
+      <Quadro valor={`${num(a.pedidos)} (${num(a.itens)})`} nome="Pedidos (itens)" ajuda={AJUDA.pedidos} variacao={delta(a.pedidos, p.pedidos)} />
+      <Quadro valor={money(a.marketing)} nome="Marketing" ajuda={AJUDA.marketing} variacao={delta(a.marketing, p.marketing)} inverter />
+      <Quadro valor={money(a.lucro)} nome="Lucro" ajuda={AJUDA.lucro} variacao={p.lucro ? delta(a.lucro, p.lucro) : null} tom={a.lucro < 0 ? "ruim" : tomLucro} />
     </div>
   );
 }
@@ -55,8 +91,8 @@ export function Inicio() {
         <>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {d.lojas.map((l) => (
-              <section key={l.store} aria-labelledby={`loja-${l.store}`} style={ACCENT[l.store]} className="rounded-[18px] border-t-4 border-roxo bg-white/60 p-4">
-                <h2 id={`loja-${l.store}`} className="m-0 mb-3 flex items-center gap-2 text-xl font-extrabold">
+              <section key={l.store} aria-labelledby={`loja-${l.store}`} style={ACCENT[l.store]} className="rounded-[22px] border border-line bg-white p-4 sm:p-6">
+                <h2 id={`loja-${l.store}`} className="m-0 mb-4 flex items-center gap-2 text-xl font-extrabold">
                   <span aria-hidden="true" className="h-3 w-3 rounded-full bg-roxo" />
                   {l.nome}
                 </h2>
@@ -64,12 +100,25 @@ export function Inicio() {
               </section>
             ))}
           </div>
-          <section aria-labelledby="total" className="rounded-[18px] border-t-4 border-ink bg-white/60 p-4">
-            <h2 id="total" className="m-0 mb-3 text-xl font-extrabold">Total das lojas</h2>
-            <Metricas a={somar(d.lojas.map((l) => l.atual))} p={somar(d.lojas.map((l) => l.anterior))} />
+          <section aria-labelledby="total" className="rounded-[22px] border border-line bg-white p-4 sm:p-6">
+            <h2 id="total" className="m-0 text-xl font-extrabold">Resumo (total)</h2>
+            <p className="mb-4 mt-1 text-sm text-muted">{d.lojas.map((l) => l.nome).join(" + ")} · pedidos pagos</p>
+            <Metricas a={somar(d.lojas.map((l) => l.atual))} p={somar(d.lojas.map((l) => l.anterior))} tomLucro="bom" />
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:gap-4">
+              {d.lojas.map((l) => (
+                <Quadro
+                  key={l.store}
+                  valor={money(l.atual.lucro)}
+                  nome={`Lucro · ${l.nome}`}
+                  ajuda={AJUDA.lucro}
+                  variacao={l.anterior.lucro ? delta(l.atual.lucro, l.anterior.lucro) : null}
+                  tom={l.store === "aphago" ? "aphago" : "abrasso"}
+                />
+              ))}
+            </div>
           </section>
           <p className="m-0 text-xs text-muted">
-            Total vendido: pedidos pagos no dia do pedido, menos estornos no dia em que foram feitos. Marketing: anúncios, e-mail, push e outros custos. Lucro: vendas − produtos − marketing − impostos, gateway e apps (mesma conta da Projeção).
+            Passe o mouse ou toque no (?) para ver como cada número é calculado.
             {d.atualizado_em && ` Vendas atualizadas às ${new Date(d.atualizado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`}
           </p>
         </>
