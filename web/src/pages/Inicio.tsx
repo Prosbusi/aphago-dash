@@ -50,8 +50,8 @@ function Quadro({ valor, nome, ajuda, variacao, inverter = false, tom = "neutro"
 const AJUDA = {
   vendido: "Pedidos pagos no dia do pedido, menos os estornos feitos no período (no dia em que aconteceram).",
   pedidos: "Pedidos pagos no período e, entre parênteses, a quantidade de itens vendidos.",
-  marketing: "Meta, Google e outras plataformas, mais e-mail, push e outros custos cadastrados em Ajustes.",
-  lucro: "Vendas − custo dos produtos − marketing − imposto sobre o Meta (13,82%) − gateway (3,5%) − apps (5%) − imposto (14% do lucro bruto).",
+  marketing: "Meta + imposto do Meta (13,82%) + Google + outras plataformas + e-mail + push + outros custos cadastrados em Ajustes.",
+  lucro: "Vendas − custo dos produtos − marketing (já com o imposto do Meta) − gateway (3,5%) − apps (5%) − imposto (14% do lucro bruto).",
 };
 
 /** As quatro métricas em duas colunas. */

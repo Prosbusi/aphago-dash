@@ -4,7 +4,7 @@
 // Custo = custo atual da variante na Shopify (inventoryItem.unitCost) × quantidade atual da linha.
 // Corpo: { store, mode }
 //   mode "recente" (padrão): hoje e os 2 dias anteriores, por consulta paginada.
-//   mode "historico": { desde, ate, restart? } — operações em massa (bulk) mês a mês; chame de novo até "concluido".
+//   mode "historico": { desde, ate, restart? } — operações em massa (bulk) mês a mês, do mais recente para trás; chame de novo até "concluido".
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const API_VERSION = "2026-07";
@@ -233,16 +233,16 @@ function addMes(mes: string, n: number) {
   return d.toISOString().slice(0, 7);
 }
 
-// Histórico mês a mês (um arquivo grande estoura o limite da função): cada chamada coleta o mês pronto e abre o próximo.
+// Histórico mês a mês, do mês atual para trás (um arquivo grande estoura o limite da função):
+// cada chamada coleta o mês pronto e abre o anterior, até chegar em `desde`.
 async function historico(store: string, body: { desde?: string; ate?: string; restart?: boolean }) {
   const chave = `vendas_diarias_hist:${store}`;
   const { data: st } = await supabase.from("sync_state").select("cursor").eq("source", chave).maybeSingle();
   const hoje = diaSP(new Date().toISOString());
-  let estado: { mes: string; ultimo: string; op: string | null } =
-    st?.cursor && !body.restart ? JSON.parse(st.cursor) : { mes: (body.desde ?? "2025-01-01").slice(0, 7), ultimo: (body.ate ?? hoje).slice(0, 7), op: null };
-  if (estado.mes > estado.ultimo) return { status: "concluido" };
+  let estado: { mes: string; primeiro: string; op: string | null; concluido?: string } =
+    st?.cursor && !body.restart ? JSON.parse(st.cursor) : { mes: (body.ate ?? hoje).slice(0, 7), primeiro: (body.desde ?? "2025-01-01").slice(0, 7), op: null };
+  if (estado.concluido === "sim") return { status: "concluido" };
   const gql = await conexao(store);
-  const salvar = () => supabase.from("sync_state").upsert({ source: chave, cursor: JSON.stringify(estado), last_run_at: new Date().toISOString() });
   let gravados = 0;
   if (estado.op) {
     const data = await gql(`query ($id: ID!) { node(id: $id) { ... on BulkOperation { status errorCode url } } }`, { id: estado.op });
@@ -254,13 +254,12 @@ async function historico(store: string, body: { desde?: string; ate?: string; re
     const lido = await lerBulk(store, op.url);
     await gravarEstornos(lido.estornos);
     gravados = await gravar(store, inicio, fim, lido.dias);
-    estado = { ...estado, mes: addMes(estado.mes, 1), op: null };
+    estado = { ...estado, mes: addMes(estado.mes, -1), op: null };
   }
-  if (estado.mes <= estado.ultimo) {
-    estado.op = await abrirBulk(gql, `${estado.mes}-01`, fimDoMes(estado.mes));
-  }
-  await salvar();
-  return { status: estado.mes > estado.ultimo ? "concluido" : "proximo", mes: estado.mes, dias_gravados: gravados };
+  if (estado.mes >= estado.primeiro) estado.op = await abrirBulk(gql, `${estado.mes}-01`, fimDoMes(estado.mes));
+  else estado.concluido = "sim";
+  await supabase.from("sync_state").upsert({ source: chave, cursor: JSON.stringify(estado), last_run_at: new Date().toISOString() });
+  return { status: estado.concluido ? "concluido" : "proximo", mes: estado.mes, dias_gravados: gravados };
 }
 
 async function authorized(req: Request): Promise<boolean> {

@@ -34,7 +34,7 @@ export function VisaoGeral() {
   );
 }
 
-export type MkDia = { dia: string; meta: number; google: number; outras_plataformas: number; email: number; push: number; outros: number; total: number };
+export type MkDia = { dia: string; meta: number; imposto_meta: number; google: number; outras_plataformas: number; email: number; push: number; outros: number; total: number };
 
 /** Marketing por dia da loja: anúncios + e-mail + push + outros custos cadastrados. */
 export function useMarketing(store: string, inicio: string, fim: string) {
@@ -44,7 +44,7 @@ export function useMarketing(store: string, inicio: string, fim: string) {
     let vivo = true;
     setDias(null);
     supabase.rpc("marketing_diario", { p_store: store, p_inicio: inicio, p_fim: fim }).then(({ data }) => {
-      if (vivo) setDias(((data ?? []) as MkDia[]).map((d) => ({ ...d, meta: +d.meta, google: +d.google, outras_plataformas: +d.outras_plataformas, email: +d.email, push: +d.push, outros: +d.outros, total: +d.total })));
+      if (vivo) setDias(((data ?? []) as MkDia[]).map((d) => ({ ...d, meta: +d.meta, imposto_meta: +(d.imposto_meta ?? 0), google: +d.google, outras_plataformas: +d.outras_plataformas, email: +d.email, push: +d.push, outros: +d.outros, total: +d.total })));
     });
     return () => { vivo = false; };
   }, [store, inicio, fim, v]);
@@ -86,7 +86,7 @@ function Conteudo({ data, start, end, store, mk, mkAnt, est, estAnt }: { data: N
   const mkTotalAnt = somaMk(mkAnt, "total");
   const retorno = mkTotal > 0 ? k.fat / mkTotal : 0;
   const retornoAnt = mkTotalAnt > 0 ? kp.fat / mkTotalAnt : 0;
-  const partes = ([["Meta", "meta"], ["Google", "google"], ["E-mail", "email"], ["Push", "push"], ["Outros", "outros"], ["Outras plataformas", "outras_plataformas"]] as const)
+  const partes = ([["Meta", "meta"], ["Imposto Meta", "imposto_meta"], ["Google", "google"], ["E-mail", "email"], ["Push", "push"], ["Outros", "outros"], ["Outras plataformas", "outras_plataformas"]] as const)
     .map(([nome, chave]) => ({ nome, valor: somaMk(mk, chave) }))
     .filter((p) => p.valor > 0);
   const fatDia = new Map(dias.map((d) => [d.dia, d.fat]));
@@ -125,13 +125,14 @@ function Conteudo({ data, start, end, store, mk, mkAnt, est, estAnt }: { data: N
       </section>
 
       {mk && mkTotal > 0 && (
-        <Card title="Marketing por dia" extra="anúncios + e-mail + push + outros custos · retorno = faturamento ÷ marketing">
+        <Card title="Marketing por dia" extra="anúncios + imposto do Meta + e-mail + push + outros custos · retorno = faturamento ÷ marketing">
           <div className="mt-3.5 overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-sm">
+            <table className="w-full min-w-[860px] border-collapse text-sm">
               <thead>
                 <tr className="text-xs text-muted">
                   <th scope="col" className="py-2 pr-2 text-left font-semibold">Dia</th>
                   <th scope="col" className="p-2 text-right font-semibold">Meta</th>
+                  <th scope="col" className="p-2 text-right font-semibold">Imposto Meta</th>
                   <th scope="col" className="p-2 text-right font-semibold">Google</th>
                   <th scope="col" className="p-2 text-right font-semibold">E-mail</th>
                   <th scope="col" className="p-2 text-right font-semibold">Push</th>
@@ -149,6 +150,7 @@ function Conteudo({ data, start, end, store, mk, mkAnt, est, estAnt }: { data: N
                     <tr key={d.dia} className="border-t border-soft">
                       <th scope="row" className="py-[9px] pr-2 text-left font-semibold">{ddmm(d.dia)}</th>
                       <td className="p-2 text-right">{money(d.meta)}</td>
+                      <td className="p-2 text-right">{money(d.imposto_meta)}</td>
                       <td className="p-2 text-right">{money(d.google)}</td>
                       <td className="p-2 text-right">{d.email ? money(d.email) : "—"}</td>
                       <td className="p-2 text-right">{d.push ? money(d.push) : "—"}</td>
