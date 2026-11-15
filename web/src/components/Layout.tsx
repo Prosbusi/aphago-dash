@@ -13,7 +13,10 @@ type Item = { to: string; label: string; end?: boolean; fase?: string };
 function navDaArea(area: string, pode: (k: string) => boolean, admin: boolean, pendentes: number): Item[] {
   const a = AREAS.find((x) => x.id === area);
   const itens: Item[] = (a?.telas ?? []).filter((t) => pode(t.chave)).map((t) => ({ to: t.rota, label: t.nome, end: t.end }));
-  if (area === "geral" && admin) itens.push({ to: "/geral/acessos", label: "Acessos", fase: pendentes ? String(pendentes) : undefined });
+  if (area === "geral" && admin) {
+    itens.unshift({ to: "/geral/inicio", label: "Início" });
+    itens.push({ to: "/geral/acessos", label: "Acessos", fase: pendentes ? String(pendentes) : undefined });
+  }
   return itens;
 }
 
@@ -46,8 +49,8 @@ export function Layout() {
   const area = pathname.split("/")[1] || "geral";
   const nav = navDaArea(area, pode, isAdmin, pendentes);
   const tela = telaDaRota(pathname);
-  const bloqueada = (tela && !pode(tela.chave)) || (pathname === "/geral/acessos" && !isAdmin);
-  const primeira = AREAS.flatMap((a) => a.telas).find((t) => pode(t.chave))?.rota ?? (isAdmin ? "/geral/acessos" : null);
+  const bloqueada = (tela && !pode(tela.chave)) || ((pathname === "/geral/acessos" || pathname === "/geral/inicio") && !isAdmin);
+  const primeira = AREAS.flatMap((a) => a.telas).find((t) => pode(t.chave))?.rota ?? (isAdmin ? "/geral/inicio" : null);
   const areas = AREAS.filter((a) => a.telas.some((t) => pode(t.chave)) || (a.id === "geral" && isAdmin));
   const inicial = (session.user.email ?? "?").slice(0, 1).toUpperCase();
 
@@ -60,7 +63,7 @@ export function Layout() {
             {areas.map((a) => (
               <NavLink
                 key={a.id}
-                to={a.telas.find((t) => pode(t.chave))?.rota ?? `/${a.id}`}
+                to={a.id === "geral" && isAdmin ? "/geral/inicio" : a.telas.find((t) => pode(t.chave))?.rota ?? `/${a.id}`}
                 className={() =>
                   `min-h-9 rounded-[7px] px-3.5 py-2 text-[13px] font-bold no-underline ${area === a.id ? "bg-ink text-white" : "text-body hover:bg-white"}`
                 }

@@ -16,11 +16,19 @@ import { Retorno } from "./pages/Retorno";
 import { Lancamentos } from "./pages/Lancamentos";
 import { Projecao } from "./pages/Projecao";
 import { Acessos } from "./pages/Acessos";
+import { Inicio } from "./pages/Inicio";
+import { useAuth } from "./auth";
 import { LOJAS } from "./lib/store";
 import { Tarefas } from "./pages/time/Tarefas";
 import { Produtos as ProdutosCriacao } from "./pages/time/Produtos";
 import { Ideias } from "./pages/time/Ideias";
 import { GrokConfig } from "./pages/time/Grok";
+
+/** Tela inicial: o administrador cai no Início; os demais, no Resumo (ou na primeira tela liberada). */
+function Entrada() {
+  const { isAdmin } = useAuth();
+  return <Navigate to={isAdmin ? "/geral/inicio" : "/geral"} replace />;
+}
 
 /** Só deixa passar /aphago/... e /abrasso/...; o resto volta para o resumo. */
 function LojaValida({ children }: { children: React.ReactNode }) {
@@ -35,7 +43,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <HashRouter>
           <Routes>
             <Route element={<Layout />}>
-              <Route index element={<Navigate to="/geral" replace />} />
+              <Route index element={<Entrada />} />
+              <Route path="geral/inicio" element={<Inicio />} />
               <Route path="geral" element={<Resumo />} />
               <Route path="geral/links" element={<Links />} />
               <Route path="geral/ajustes" element={<Ajustes />} />
@@ -54,7 +63,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path=":store/jornada" element={<LojaValida><Jornada /></LojaValida>} />
               <Route path=":store/retorno" element={<LojaValida><Retorno /></LojaValida>} />
               <Route path=":store/lancamentos" element={<LojaValida><Lancamentos /></LojaValida>} />
-              <Route path="*" element={<Navigate to="/geral" replace />} />
+              <Route path="*" element={<Entrada />} />
             </Route>
           </Routes>
         </HashRouter>
