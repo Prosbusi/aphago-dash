@@ -1,5 +1,6 @@
 // Vendas e custo de produto por dia (tabela vendas_diarias), direto da Shopify, para a projeção diária.
-// Pedido conta se estiver pago (PAID ou PARTIALLY_REFUNDED) e não cancelado; dia = data de criação em São Paulo.
+// Venda = valor original do pedido pago (pago, parcialmente reembolsado ou reembolsado), no dia do pedido (São Paulo).
+// Estorno = cada reembolso, no dia em que foi feito (tabela estornos), como no relatório de vendas da Shopify.
 // Custo = custo atual da variante na Shopify (inventoryItem.unitCost) × quantidade atual da linha.
 // Corpo: { store, mode }
 //   mode "recente" (padrão): hoje e os 2 dias anteriores, por consulta paginada.
@@ -11,7 +12,7 @@ const STORES: Record<string, { prefix: string; shop: string }> = {
   aphago: { prefix: "", shop: "usematerne.myshopify.com" },
   abrasso: { prefix: "ABRASSO_", shop: "abrasso.myshopify.com" },
 };
-const PAGO = new Set(["PAID", "PARTIALLY_REFUNDED"]);
+const PAGO = new Set(["PAID", "PARTIALLY_REFUNDED", "REFUNDED"]);
 
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -86,6 +87,24 @@ async function gravar(store: string, desde: string, ate: string, dias: Map<strin
   return rows.length;
 }
 
+type Estorno = { refund_id: string; store: string; order_id: string; pedido: string | null; pedido_dia: string; dia: string; valor: number; cancelado: boolean; atualizado_em: string };
+// deno-lint-ignore no-explicit-any
+function estornosDoPedido(store: string, o: any): Estorno[] {
+  return (o.refunds ?? [])
+    // deno-lint-ignore no-explicit-any
+    .map((r: any) => ({
+      refund_id: r.id, store, order_id: o.id, pedido: o.name ?? null, pedido_dia: diaSP(o.createdAt), dia: diaSP(r.createdAt),
+      valor: Math.round(money(r.totalRefundedSet) * 100) / 100, cancelado: !!o.cancelledAt, atualizado_em: new Date().toISOString(),
+    }))
+    .filter((e: Estorno) => e.valor > 0);
+}
+async function gravarEstornos(lista: Estorno[]) {
+  for (let i = 0; i < lista.length; i += 500) {
+    const { error } = await supabase.from("estornos").upsert(lista.slice(i, i + 500), { onConflict: "refund_id" });
+    if (error) throw new Error(`estornos: ${error.message}`);
+  }
+}
+
 const filtro = (desde: string, ate: string) => `created_at:>='${desde}T00:00:00-03:00' AND created_at:<'${addDays(ate, 1)}T00:00:00-03:00'`;
 
 const PAGINADA = `
@@ -93,10 +112,19 @@ query ($after: String, $q: String!) {
   orders(first: 10, after: $after, query: $q) {
     pageInfo { hasNextPage endCursor }
     nodes {
-      createdAt cancelledAt displayFinancialStatus
-      currentTotalPriceSet { shopMoney { amount } }
+      id name createdAt cancelledAt displayFinancialStatus
+      totalPriceSet { shopMoney { amount } }
+      refunds(first: 10) { id createdAt totalRefundedSet { shopMoney { amount } } }
       lineItems(first: 25) { nodes { currentQuantity discountedTotalSet { shopMoney { amount } } variant { inventoryItem { unitCost { amount } } } } }
     }
+  }
+}`;
+
+const ESTORNOS = `
+query ($after: String, $q: String!) {
+  orders(first: 50, after: $after, query: $q) {
+    pageInfo { hasNextPage endCursor }
+    nodes { id name createdAt cancelledAt refunds(first: 10) { id createdAt totalRefundedSet { shopMoney { amount } } } }
   }
 }`;
 
@@ -105,15 +133,17 @@ async function recente(store: string) {
   const ate = diaSP(new Date().toISOString());
   const desde = addDays(ate, -2);
   const dias = new Map<string, Dia>();
+  const estornos: Estorno[] = [];
   let after: string | null = null;
   do {
     const data = await gql(PAGINADA, { after, q: filtro(desde, ate) });
     // deno-lint-ignore no-explicit-any
     for (const o of data.orders.nodes as any[]) {
-      if (o.cancelledAt || !PAGO.has(o.displayFinancialStatus)) continue;
+      estornos.push(...estornosDoPedido(store, o));
+      if (!PAGO.has(o.displayFinancialStatus)) continue;
       const dia = diaSP(o.createdAt);
       const d = dias.get(dia) ?? vazio();
-      d.vendas += money(o.currentTotalPriceSet);
+      d.vendas += money(o.totalPriceSet);
       d.pedidos += 1;
       for (const li of o.lineItems.nodes) {
         const custo = li.variant?.inventoryItem?.unitCost?.amount;
@@ -123,7 +153,16 @@ async function recente(store: string) {
     }
     after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
   } while (after);
-  return { desde, ate, dias: await gravar(store, desde, ate, dias) };
+  // reembolsos feitos nestes dias em pedidos mais antigos (o pedido é atualizado quando recebe o reembolso)
+  after = null;
+  do {
+    const data = await gql(ESTORNOS, { after, q: `updated_at:>='${desde}T00:00:00-03:00' AND (financial_status:refunded OR financial_status:partially_refunded)` });
+    // deno-lint-ignore no-explicit-any
+    for (const o of data.orders.nodes as any[]) estornos.push(...estornosDoPedido(store, o));
+    after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
+  } while (after);
+  await gravarEstornos(estornos);
+  return { desde, ate, dias: await gravar(store, desde, ate, dias), estornos: estornos.length };
 }
 
 // Operação em massa (bulk) de um intervalo: devolve o id da operação.
@@ -131,8 +170,9 @@ async function abrirBulk(gql: Awaited<ReturnType<typeof conexao>>, desde: string
   const consulta = `{
     orders(query: "${filtro(desde, ate)}") {
       edges { node {
-        id createdAt cancelledAt displayFinancialStatus
-        currentTotalPriceSet { shopMoney { amount } }
+        id name createdAt cancelledAt displayFinancialStatus
+        totalPriceSet { shopMoney { amount } }
+        refunds { id createdAt totalRefundedSet { shopMoney { amount } } }
         lineItems { edges { node { currentQuantity discountedTotalSet { shopMoney { amount } } variant { inventoryItem { unitCost { amount } } } } } }
       } }
     }
@@ -147,10 +187,11 @@ async function abrirBulk(gql: Awaited<ReturnType<typeof conexao>>, desde: string
 }
 
 // Lê o resultado de uma operação em massa concluída e soma por dia.
-async function lerBulk(url: string | null) {
+async function lerBulk(store: string, url: string | null) {
   const dias = new Map<string, Dia>();
+  const estornos: Estorno[] = [];
   const pedidos = new Map<string, Dia | null>();
-  if (!url) return dias;
+  if (!url) return { dias, estornos };
   const res = await fetch(url);
   const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
   let resto = "";
@@ -164,10 +205,11 @@ async function lerBulk(url: string | null) {
       somarLinha(d, o.currentQuantity ?? 0, money(o.discountedTotalSet), custo != null ? Number(custo) : null);
       return;
     }
-    if (o.cancelledAt || !PAGO.has(o.displayFinancialStatus)) { pedidos.set(o.id, null); return; }
+    estornos.push(...estornosDoPedido(store, o));
+    if (!PAGO.has(o.displayFinancialStatus)) { pedidos.set(o.id, null); return; }
     const dia = diaSP(o.createdAt);
     const d = dias.get(dia) ?? vazio();
-    d.vendas += money(o.currentTotalPriceSet);
+    d.vendas += money(o.totalPriceSet);
     d.pedidos += 1;
     dias.set(dia, d);
     pedidos.set(o.id, d);
@@ -181,7 +223,7 @@ async function lerBulk(url: string | null) {
     for (const p of partes) linha(p);
   }
   linha(resto);
-  return dias;
+  return { dias, estornos };
 }
 
 const fimDoMes = (mes: string) => addDays(`${addMes(mes, 1)}-01`, -1);
@@ -209,7 +251,9 @@ async function historico(store: string, body: { desde?: string; ate?: string; re
     if (op.status !== "COMPLETED") throw new Error(`operação ${op.status} ${op.errorCode ?? ""} no mês ${estado.mes}`);
     const inicio = `${estado.mes}-01`;
     const fim = [fimDoMes(estado.mes), hoje].sort()[0];
-    gravados = await gravar(store, inicio, fim, await lerBulk(op.url));
+    const lido = await lerBulk(store, op.url);
+    await gravarEstornos(lido.estornos);
+    gravados = await gravar(store, inicio, fim, lido.dias);
     estado = { ...estado, mes: addMes(estado.mes, 1), op: null };
   }
   if (estado.mes <= estado.ultimo) {

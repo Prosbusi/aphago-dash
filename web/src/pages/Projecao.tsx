@@ -5,8 +5,10 @@ import { supabase } from "../lib/supabase";
 import { ddmm, dec, money } from "../lib/format";
 import { Card, ErrorBox, Kpi, Loading, PageTitle } from "../components/ui";
 
+type Estorno = { pedido: string | null; pedido_dia: string; valor: number; cancelado: boolean };
 type Dia = {
   dia: string; dia_ant: string; offset: number;
+  bruto: number; estornos: number; estornos_itens: Estorno[] | null; estornos_ant: number; estornos_ant_itens: Estorno[] | null;
   vendas: number; pedidos: number; custo: number; marketing: number; lucro: number;
   vendas_ant: number; pedidos_ant: number; custo_ant: number; marketing_ant: number; lucro_ant: number; tem_vendas_ant: boolean;
 };
@@ -16,6 +18,18 @@ const SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "S�
 const diaSemana = (iso: string) => SEMANA[new Date(`${iso}T12:00:00Z`).getUTCDay()];
 const roas = (v: number, m: number) => (m > 0 ? v / m : 0);
 const fmtRoas = (r: number) => (r > 0 ? `${dec(r, 2)}x` : "—");
+
+/** Bandeira vermelha no dia em que houve estorno; o detalhe aparece ao passar o mouse ou tocar. */
+function Bandeira({ valor, itens }: { valor: number; itens: Estorno[] | null }) {
+  if (!valor) return null;
+  const detalhe = (itens ?? []).map((e) => `#${e.pedido ?? "?"} de ${ddmm(e.pedido_dia)}${e.cancelado ? " (cancelado)" : ""}: ${money(e.valor)}`).join("\n");
+  const texto = `Estornos no dia: ${money(valor)} já descontados das vendas\n${detalhe}`;
+  return (
+    <span title={texto} aria-label={texto} role="img" className="ml-1.5 inline-flex cursor-help items-center align-middle text-ruim">
+      <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M5 2a1 1 0 0 1 1 1v1h11.5a1 1 0 0 1 .8 1.6L15.75 9l2.55 3.4a1 1 0 0 1-.8 1.6H6v7a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1Z" /></svg>
+    </span>
+  );
+}
 
 function Variacao({ atual, anterior, inverter = false }: { atual: number; anterior: number; inverter?: boolean }) {
   if (!anterior) return null;
@@ -61,6 +75,8 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
   const v7ant = soma(passados, "vendas_ant");
   const m7 = soma(passados, "marketing");
   const m7ant = soma(passados, "marketing_ant");
+  const e7 = soma(passados, "estornos");
+  const e7ant = soma(passados, "estornos_ant");
   const l7 = soma(passados, "lucro");
   const l7ant = soma(passados, "lucro_ant");
   const temHistorico = passados.some((x) => x.tem_vendas_ant);
@@ -78,7 +94,7 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
       )}
 
       <section aria-label="Indicadores" className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-        <Kpi label="Vendas · últimos 7 dias" value={money(v7)} delta={delta(v7, v7ant)} sub={`vs. ${money(v7ant)} em ${anoAnt}`} />
+        <Kpi label="Vendas · últimos 7 dias" value={money(v7)} delta={delta(v7, v7ant)} sub={`vs. ${money(v7ant)} em ${anoAnt}${e7 ? ` · já sem ${money(e7)} de estornos` : ""}`} />
         <Kpi label="Marketing · últimos 7 dias" value={money(m7)} delta={delta(m7, m7ant)} invert sub={`retorno ${fmtRoas(roas(v7, m7))} · ${anoAnt}: ${fmtRoas(roas(v7ant, m7ant))}`} />
         <Kpi label="Lucro · últimos 7 dias" value={money(l7)} delta={delta(l7, l7ant)} sub={`vs. ${money(l7ant)} em ${anoAnt}`} />
         <Kpi
@@ -125,7 +141,7 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
                       {futuro ? (
                         proj != null ? <span className="text-muted" title={`${anoAnt} × ritmo dos últimos 7 dias`}>≈ {money(proj)}</span> : <span className="text-muted">—</span>
                       ) : (
-                        <><span className="font-semibold">{money(x.vendas)}</span><Variacao atual={x.vendas} anterior={x.vendas_ant} /></>
+                        <><Bandeira valor={x.estornos} itens={x.estornos_itens} /><span className="ml-1 font-semibold">{money(x.vendas)}</span><Variacao atual={x.vendas} anterior={x.vendas_ant} /></>
                       )}
                     </td>
                     <td className="whitespace-nowrap p-2 text-right">
@@ -136,7 +152,7 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
                     </td>
                     <td className="whitespace-nowrap p-2 text-right">{futuro ? <span className="text-muted">—</span> : fmtRoas(roas(x.vendas, x.marketing))}</td>
                     <td className="border-l border-soft p-2 text-body">{diaSemana(x.dia_ant)}</td>
-                    <td className="whitespace-nowrap p-2 text-right">{x.tem_vendas_ant ? money(x.vendas_ant) : "—"}</td>
+                    <td className="whitespace-nowrap p-2 text-right">{x.tem_vendas_ant ? <><Bandeira valor={x.estornos_ant} itens={x.estornos_ant_itens} /><span className="ml-1">{money(x.vendas_ant)}</span></> : "—"}</td>
                     <td className="whitespace-nowrap p-2 text-right">{x.marketing_ant ? money(x.marketing_ant) : "—"}</td>
                     <td className={`whitespace-nowrap p-2 text-right ${x.lucro_ant < 0 ? "text-ruim" : ""}`}>{x.tem_vendas_ant ? money(x.lucro_ant) : "—"}</td>
                     <td className="whitespace-nowrap py-2 pl-2 text-right">{fmtRoas(roas(x.vendas_ant, x.marketing_ant))}</td>
@@ -146,7 +162,7 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-line font-bold">
-                <th scope="row" className="py-[11px] pr-2 text-left">7 dias até ontem</th>
+                <th scope="row" className="py-[11px] pr-2 text-left">7 dias até ontem{e7 + e7ant > 0 && <span className="block text-[11px] font-semibold text-muted">estornos {money(e7)} · {anoAnt}: {money(e7ant)}</span>}</th>
                 <td className="border-l border-soft p-2" />
                 <td className="whitespace-nowrap p-2 text-right">{money(v7)}<Variacao atual={v7} anterior={v7ant} /></td>
                 <td className="whitespace-nowrap p-2 text-right">{money(m7)}<Variacao atual={m7} anterior={m7ant} inverter /></td>
@@ -165,7 +181,8 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
         <details className="mt-4 rounded-xl bg-ground px-4 py-3 text-[13px] text-body">
           <summary className="cursor-pointer font-semibold text-ink">Como cada número é calculado</summary>
           <ul className="mb-1 mt-2 list-disc space-y-1.5 pl-5">
-            <li><strong>Vendas:</strong> pedidos pagos na Shopify (pagos ou com reembolso parcial, sem cancelados), pelo valor atual do pedido, no dia da compra.</li>
+            <li><strong>Vendas:</strong> valor dos pedidos pagos na Shopify no dia da compra (com frete e descontos), menos os estornos feitos naquele dia. É a mesma lógica do relatório de vendas da Shopify. Pedidos ainda não pagos (Pix aguardando, por exemplo) entram quando o pagamento é confirmado.</li>
+            <li><strong>Bandeira vermelha:</strong> o dia teve estorno (reembolso total ou parcial, inclusive de pedidos cancelados). O valor sai das vendas do dia em que o estorno foi feito, não do dia do pedido. Passe o mouse para ver os pedidos.</li>
             <li><strong>Marketing:</strong> Meta + Google + outras plataformas + e-mail + push + outros custos de marketing cadastrados em Ajustes (valores mensais divididos pelos dias do mês). Em {anoAnt}, o Meta vem do total diário da conta.</li>
             <li><strong>Lucro:</strong> vendas − custo dos produtos − marketing − imposto sobre o Meta (13,82% do gasto no Meta) − gateway (3,5% das vendas) − apps (5% das vendas) − imposto (14% do lucro bruto). É a mesma conta da planilha de lucro.</li>
             <li><strong>Custo dos produtos:</strong> custo cadastrado em cada variante na Shopify × quantidade. Variantes apagadas ou sem custo recebem a mesma proporção custo/venda do dia.</li>

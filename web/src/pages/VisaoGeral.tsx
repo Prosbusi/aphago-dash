@@ -17,6 +17,8 @@ export function VisaoGeral() {
   const { data, error, loading } = useDashData(period, store);
   const mk = useMarketing(store, period.start, period.end);
   const mkAnt = useMarketing(store, period.prevStart, period.prevEnd);
+  const est = useEstornos(store, period.start, period.end);
+  const estAnt = useEstornos(store, period.prevStart, period.prevEnd);
 
   return (
     <>
@@ -27,7 +29,7 @@ export function VisaoGeral() {
       />
       {error && <ErrorBox message={error} />}
       {loading && !data && <Loading />}
-      {data && <Conteudo data={data} start={period.start} end={period.end} store={store} mk={mk} mkAnt={mkAnt} />}
+      {data && <Conteudo data={data} start={period.start} end={period.end} store={store} mk={mk} mkAnt={mkAnt} est={est} estAnt={estAnt} />}
     </>
   );
 }
@@ -49,7 +51,24 @@ export function useMarketing(store: string, inicio: string, fim: string) {
   return dias;
 }
 
-function Conteudo({ data, start, end, store, mk, mkAnt }: { data: NonNullable<ReturnType<typeof useDashData>["data"]>; start: string; end: string; store: string; mk: MkDia[] | null; mkAnt: MkDia[] | null }) {
+type Estornos = { total: number; pedidos: number };
+
+/** Estornos (reembolsos) feitos no período, pelo dia do estorno. */
+function useEstornos(store: string, inicio: string, fim: string) {
+  const v = useDataVersion();
+  const [e, setE] = useState<Estornos | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    setE(null);
+    supabase.rpc("estornos_periodo", { p_store: store, p_inicio: inicio, p_fim: fim }).then(({ data }) => {
+      if (vivo && data) setE({ total: Number((data as Estornos).total), pedidos: Number((data as Estornos).pedidos) });
+    });
+    return () => { vivo = false; };
+  }, [store, inicio, fim, v]);
+  return e;
+}
+
+function Conteudo({ data, start, end, store, mk, mkAnt, est, estAnt }: { data: NonNullable<ReturnType<typeof useDashData>["data"]>; start: string; end: string; store: string; mk: MkDia[] | null; mkAnt: MkDia[] | null; est: Estornos | null; estAnt: Estornos | null }) {
   const k = kpis(data.orders);
   const kp = kpis(data.prevOrders);
   const dias = byDay(data.orders, listDays(start, end));
@@ -95,6 +114,13 @@ function Conteudo({ data, start, end, store, mk, mkAnt }: { data: NonNullable<Re
           value={retorno ? `${dec(retorno, 2)}x` : "—"}
           delta={retorno && retornoAnt ? delta(retorno, retornoAnt) : null}
           sub={retorno ? `${money2(retorno)} faturados por R$ 1 em marketing` : undefined}
+        />
+        <Kpi
+          label="Estornos"
+          value={est ? money(est.total) : "…"}
+          delta={est && estAnt && estAnt.total ? delta(est.total, estAnt.total) : null}
+          invert
+          sub={est ? (est.pedidos ? `${num(est.pedidos)} ${est.pedidos === 1 ? "pedido reembolsado" : "pedidos reembolsados"} no período${k.fat ? ` · ${pct((est.total / k.fat) * 100, 1)} do faturamento` : ""}` : "nenhum reembolso no período") : undefined}
         />
       </section>
 
