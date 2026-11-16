@@ -83,7 +83,7 @@ function Conteudo({ d }: { d: Cat }) {
                   <th scope="col" className="p-2 font-semibold">Produto</th>
                   <th scope="col" className={th}>
                     <abbr title="Anúncios com gasto no período / anúncios ligados agora no Meta" className="no-underline">Anúncios</abbr>
-                    <span className="block text-[11px] font-medium">com gasto / ligados</span>
+                    <span className="block whitespace-nowrap text-[11px] font-medium">com gasto / ligados</span>
                   </th>
                   <th scope="col" className={`${th} w-[13%]`}>Investimento</th>
                   <th scope="col" className={th}>Cliques</th>
@@ -106,16 +106,16 @@ function Conteudo({ d }: { d: Cat }) {
                     <Fragment key={f.familia}>
                       <tr className="cursor-pointer border-t border-soft hover:bg-soft/40" onClick={() => setAberta(open ? null : f.familia)}>
                         <td className="py-2.5 pr-2"><span className="rounded-md border border-line bg-soft px-2 py-0.5 font-mono text-[12px] font-bold">{f.familia}</span></td>
-                        <td className="p-2">
-                          <div className="flex items-center gap-2.5">
+                        <td className="w-[320px] max-w-[320px] p-2">
+                          <div className="flex min-w-0 items-center gap-2.5">
                             <span aria-hidden="true" className="w-3 text-[11px] text-muted">{prods.length > 1 ? (open ? "▾" : "▸") : ""}</span>
-                            {capa ? <img src={capa} alt="" loading="lazy" className="h-10 w-10 rounded-md object-cover" /> : <span className="h-10 w-10 rounded-md bg-soft" />}
+                            {capa ? <img src={capa} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-md object-cover" /> : <span className="h-10 w-10 rounded-md bg-soft" />}
                             <div className="min-w-0">
-                              <div className="font-semibold">{f.nome}</div>
+                              <div className="truncate font-semibold" title={f.nome}>{f.nome}</div>
                               <div className="truncate text-xs text-muted">
                                 {prods.length > 1
-                                  ? `${prods.length} produtos vendidos no período · clique para ${open ? "recolher" : "ver"}`
-                                  : unico?.online_url ? unico.online_url.replace(/^https?:\/\//, "") : f.modelos.split("").map((l) => MODELO[l] ?? l).join(" · ")}
+                                  ? `${prods.length} produtos vendidos · clique para ${open ? "recolher" : "ver"}`
+                                  : unico?.online_url ? unico.online_url.replace(/^https?:\/\/(www\.)?/, "") : `${f.modelos.length} ${f.modelos.length === 1 ? "modelo" : "modelos"} · clique para ver`}
                               </div>
                             </div>
                           </div>
@@ -206,6 +206,11 @@ function Detalhe({ f, d }: { f: FamiliaCat; d: Cat }) {
   return (
     <div className="grid gap-4 rounded-[10px] border border-line bg-white p-4 md:grid-cols-2">
       <div>
+        {f.modelos && (
+          <p className="m-0 mb-3 text-[13px] text-body">
+            <strong className="text-ink">Modelos cadastrados:</strong> {f.modelos.split("").map((l) => MODELO[l] ?? l).join(" · ")}
+          </p>
+        )}
         <h3 className="m-0 text-[13px] font-bold">O que foi comprado (por modelo)</h3>
         {mods.length === 0 ? <p className="mt-2 text-[13px] text-muted">Sem vendas no período.</p> : (
           <ul className="mt-2 space-y-1.5 text-[13px]">
