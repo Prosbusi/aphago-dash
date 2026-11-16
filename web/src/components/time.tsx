@@ -62,15 +62,18 @@ export function CampoImagens({ valor, onChange }: { valor: string[]; onChange: (
   const ref = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // sempre a versão mais recente: o ⌘V é registrado uma vez só e o envio termina depois de a pessoa já ter digitado
   const atual = useRef(valor);
   atual.current = valor;
+  const avisar = useRef(onChange);
+  avisar.current = onChange;
   const enviar = async (arquivos: File[]) => {
     if (!arquivos.length) return;
     setEnviando(true); setErro(null);
     try {
       const novos: string[] = [];
       for (const a of arquivos) novos.push(await enviarImagem(a));
-      onChange([...atual.current, ...novos]);
+      avisar.current([...atual.current, ...novos]);
     } catch (e) { setErro(e instanceof Error ? e.message : "Falha no envio"); }
     setEnviando(false);
   };

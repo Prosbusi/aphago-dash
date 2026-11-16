@@ -214,7 +214,7 @@ function FormIdeia({ inicial, temas, onCancelar, onSalvo }: { inicial: Rascunho;
         </div>
         <div className="flex flex-col gap-1.5">
           <Rotulo>Imagens</Rotulo>
-          <CampoImagens valor={f.imagens} onChange={(v) => setF({ ...f, imagens: v })} />
+          <CampoImagens valor={f.imagens} onChange={(v) => setF((x) => ({ ...x, imagens: v }))} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Rotulo>Tema <span className="font-normal text-muted">· pode escolher mais de um</span></Rotulo>
