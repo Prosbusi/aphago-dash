@@ -8,7 +8,7 @@ import { todaySP } from "../lib/period";
 import { Card, Empty, ErrorBox, Kpi, Loading, PageTitle, ShareBar } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
 
-type Tipo = "creator" | "promocao" | "pos_venda" | "interno";
+type Tipo = "vip" | "app" | "creator" | "promocao" | "pos_venda" | "interno";
 type Cupom = {
   codigo: string; tipo: Tipo; sugerido: boolean; mediana: number | null; primeiro: string | null; ultimo: string | null; pedidos_total: number;
   nome: string | null; instagram: string | null; tiktok: string | null; email: string | null; pix: string | null;
@@ -19,15 +19,19 @@ type Resumo = {
   pedidos: number; vendas: number; pedidos_cupom: number; vendas_cupom: number; desconto_cupom: number; novos_cupom: number;
   pedidos_creator: number; vendas_creator: number; ticket_sem_cupom: number;
 };
-type Dia = { dia: string; creator: number; outros: number; sem: number };
+type Dia = { dia: string; sem: number; tipos: Partial<Record<Tipo, number>> };
 type Painel = { admin: boolean; resumo: Resumo; cupons: Cupom[]; dias: Dia[] };
 
 const TIPOS: { id: Tipo; nome: string; cor: string; texto: string }[] = [
+  { id: "vip", nome: "Grupo VIP", cor: "#25A35A", texto: "cupons VIP…, disparados no grupo VIP do WhatsApp" },
+  { id: "app", nome: "App (push)", cor: "#3B6FD8", texto: "cupons APP…, disparados no app" },
   { id: "creator", nome: "Creator", cor: "rgb(var(--accent))", texto: "cupom com nome de alguém, comissão sobre as vendas" },
   { id: "promocao", nome: "Promoção", cor: "#E39A6F", texto: "campanhas e ações da loja (Black, VIP, frete…)" },
   { id: "pos_venda", nome: "Pós-venda", cor: "#4C8C6B", texto: "boas-vindas, agradecimento e volta (gerados pela loja)" },
   { id: "interno", nome: "Interno", cor: "#8C877D", texto: "ajustes do time, testes e trocas" },
 ];
+/** VIP… e APP… são regra fixa: o tipo vem do prefixo e não se muda na tela. */
+const porPrefixo = (codigo: string) => /^(VIP|APP)/.test(codigo);
 const nomeTipo = (t: Tipo) => TIPOS.find((x) => x.id === t)?.nome ?? t;
 const corTipo = (t: Tipo) => TIPOS.find((x) => x.id === t)?.cor ?? "#8C877D";
 
@@ -72,8 +76,8 @@ export function Cupons() {
 
   const abas: { id: Aba; nome: string }[] = [
     { id: "visao", nome: "Visão geral" },
-    { id: "creators", nome: "Creators" },
     { id: "todos", nome: "Todos os cupons" },
+    { id: "creators", nome: "Creators" },
     ...(data?.admin ? [{ id: "comissoes" as Aba, nome: "Comissões" }] : []),
   ];
 
@@ -104,7 +108,6 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
   const r = d.resumo;
   const usados = d.cupons.filter((c) => c.pedidos > 0);
   const creators = d.cupons.filter(ehCreator);
-  const comissaoTotal = creators.reduce((s, c) => s + comissao(c), 0);
   const ticketCupom = ticket(r.vendas_cupom, r.pedidos_cupom);
   const sugeridos = usados.filter((c) => c.sugerido).length;
   const semVenda = creators.filter((c) => c.pedidos === 0 && c.ativo).length;
@@ -120,7 +123,9 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
   });
   const maxTipo = Math.max(...porTipo.map((t) => t.vendas), 1);
 
-  const maxDia = Math.max(...d.dias.map((x) => x.creator + x.outros), 1);
+  const somaDia = (x: Dia) => TIPOS.reduce((s, t) => s + (x.tipos[t.id] ?? 0), 0);
+  const maxDia = Math.max(...d.dias.map(somaDia), 1);
+  const tiposNoGrafico = TIPOS.filter((t) => d.dias.some((x) => (x.tipos[t.id] ?? 0) > 0));
   const step = Math.max(1, Math.ceil(d.dias.length / 6));
 
   return (
@@ -128,7 +133,10 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
       <section aria-label="Indicadores" className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         <Kpi label="Vendas com cupom" value={money(r.vendas_cupom)} sub={`${pct(share(r.vendas_cupom, r.vendas), 0)} das vendas · ${num(r.pedidos_cupom)} de ${num(r.pedidos)} pedidos`} />
         <Kpi label="Desconto dado em cupons" value={money(r.desconto_cupom)} sub={`${pct(share(r.desconto_cupom, r.vendas_cupom + r.desconto_cupom), 0)} do valor cheio desses pedidos`} />
-        <Kpi label="Vendas por creators" value={money(r.vendas_creator)} sub={`${num(r.pedidos_creator)} pedidos · comissão ${money(comissaoTotal)}`} />
+        {(["vip", "app"] as const).map((id) => {
+          const t = porTipo.find((x) => x.id === id)!;
+          return <Kpi key={id} label={`Vendas ${t.nome}`} value={money(t.vendas)} sub={t.pedidos ? `${num(t.pedidos)} pedidos · ${num(t.cupons)} ${t.cupons === 1 ? "cupom" : "cupons"} · desconto ${money(t.desconto)}` : "nenhum cupom usado no período"} />;
+        })}
         <Kpi label="Ticket com cupom" value={money(ticketCupom)} sub={`sem cupom ${money(r.ticket_sem_cupom)} · ${pct(share(r.novos_cupom, r.pedidos_cupom), 0)} clientes novos`} />
       </section>
 
@@ -191,8 +199,9 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
           title="Vendas com cupom por dia"
           extra={
             <span className="flex flex-wrap gap-4">
-              <span className="flex items-center gap-1.5"><span aria-hidden="true" className="h-3 w-3 rounded-[3px]" style={{ background: corTipo("creator") }} />Creators</span>
-              <span className="flex items-center gap-1.5"><span aria-hidden="true" className="h-3 w-3 rounded-[3px]" style={{ background: "#E39A6F" }} />Outros cupons</span>
+              {tiposNoGrafico.map((t) => (
+                <span key={t.id} className="flex items-center gap-1.5"><span aria-hidden="true" className="h-3 w-3 rounded-[3px]" style={{ background: t.cor }} />{t.nome}</span>
+              ))}
             </span>
           }
         >
@@ -200,13 +209,12 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
             <div className="min-w-[640px]">
               <div className="flex h-[180px] items-end gap-1.5 border-b border-[#D6D1C7]">
                 {d.dias.map((x) => {
-                  const tot = x.creator + x.outros;
-                  const loja = tot + x.sem;
+                  const tot = somaDia(x);
+                  const partes = tiposNoGrafico.filter((t) => (x.tipos[t.id] ?? 0) > 0);
                   return (
                     <div key={x.dia} className="flex flex-1 flex-col-reverse overflow-hidden rounded-t" style={{ height: `${Math.round((tot / maxDia) * 170)}px` }}
-                      title={`${ddmm(x.dia)}: creators ${money(x.creator)} · outros cupons ${money(x.outros)} · ${pct(share(tot, loja), 0)} das vendas do dia`}>
-                      <div style={{ background: corTipo("creator"), height: tot ? `${(x.creator / tot) * 100}%` : 0 }} />
-                      <div style={{ background: "#E39A6F", height: tot ? `${(x.outros / tot) * 100}%` : 0 }} />
+                      title={`${ddmm(x.dia)}: ${partes.map((t) => `${t.nome} ${money(x.tipos[t.id] ?? 0)}`).join(" · ") || "sem cupom"} · ${pct(share(tot, tot + x.sem), 0)} das vendas do dia`}>
+                      {partes.map((t) => <div key={t.id} style={{ background: t.cor, height: `${((x.tipos[t.id] ?? 0) / tot) * 100}%` }} />)}
                     </div>
                   );
                 })}
@@ -218,11 +226,11 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
               </div>
               <div className="mt-1 flex gap-1.5" aria-label="Parte das vendas do dia com cupom">
                 {d.dias.map((x) => {
-                  const tot = x.creator + x.outros;
+                  const tot = somaDia(x);
                   return <div key={x.dia} className="flex-1 text-center text-[10.5px] font-semibold text-muted">{tot ? pct(share(tot, tot + x.sem), 0) : ""}</div>;
                 })}
               </div>
-              <p className="mb-0 mt-1 text-xs text-muted">Linha de baixo: parte das vendas do dia que usou cupom.</p>
+              <p className="mb-0 mt-1 text-xs text-muted">Linha de baixo: parte das vendas do dia que usou cupom. Pedido com mais de um cupom entra num tipo só (VIP, depois App, Creator, Promoção…).</p>
             </div>
           </div>
         </Card>
@@ -576,10 +584,11 @@ function Todos({ d, store, onSalvo }: { d: Painel; store: string; onSalvo: () =>
                   <td className="p-2">
                     <div className="flex items-center gap-1.5">
                       <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: corTipo(c.tipo) }} />
+                      {porPrefixo(c.codigo) ? <span className="text-xs font-semibold" title="Definido pelo começo do código">{nomeTipo(c.tipo)}</span> : (
                       <select aria-label={`Tipo do cupom ${c.codigo}`} value={c.tipo} disabled={salvando !== null} onChange={(e) => mudarTipo(c.codigo, e.target.value as Tipo)}
                         className={`min-h-8 rounded-md border bg-white px-1.5 text-xs font-semibold ${c.sugerido ? "border-dashed border-laranja" : "border-line"}`}>
                         {TIPOS.map((t) => <option key={t.id} value={t.id}>{t.nome}{c.sugerido && t.id === c.tipo ? " (sugerido)" : ""}</option>)}
-                      </select>
+                      </select>)}
                     </div>
                   </td>
                   <td className="p-2 text-right">{num(c.pedidos)}</td>
@@ -596,7 +605,7 @@ function Todos({ d, store, onSalvo }: { d: Painel; store: string; onSalvo: () =>
           </table>
         </div>
       )}
-      <p className="mb-0 mt-3 text-xs text-muted">Tracejado = tipo sugerido pelo Pharol (pelo nome do cupom e pelo desconto típico; 5% com nome de pessoa vira Creator). Mudar o tipo vale para todo o histórico. Desconto típico e uso consideram todo o histórico; o resto, só o período. Canal principal = canal da última visita antes da compra na maioria dos pedidos.</p>
+      <p className="mb-0 mt-3 text-xs text-muted">Grupo VIP e App vêm do começo do código (VIP… e APP…) e não precisam de conferência. Tracejado = tipo sugerido pelo Pharol (pelo nome do cupom e pelo desconto típico; 5% com nome de pessoa vira Creator). Mudar o tipo vale para todo o histórico. Desconto típico e uso consideram todo o histórico; o resto, só o período. Canal principal = canal da última visita antes da compra na maioria dos pedidos.</p>
     </Card>
   );
 }

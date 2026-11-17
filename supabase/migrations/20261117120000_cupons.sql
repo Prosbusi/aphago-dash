@@ -125,7 +125,7 @@ begin
       and (o.created_at at time zone 'America/Sao_Paulo')::date between p_inicio and p_fim
   ),
   marca as (
-    select p.*, bool_or(u.order_id is not null) as com_cupom, bool_or(u.tipo = 'creator') as creator
+    select p.*, bool_or(u.order_id is not null) as com_cupom, coalesce(bool_or(u.tipo = 'creator'), false) as creator
     from ped p left join uso u on u.order_id = p.order_id
     group by p.order_id, p.dia, p.vendas, p.desconto, p.novo
   )
@@ -144,12 +144,12 @@ begin
     'cupons', coalesce((select jsonb_agg(to_jsonb(l) order by l.vendas desc, l.codigo) from lista l), '[]'::jsonb),
     'dias', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'dia', d.dia,
-        'creator', coalesce((select sum(m.vendas) from marca m where m.dia = d.dia and m.creator), 0),
-        'outros', coalesce((select sum(m.vendas) from marca m where m.dia = d.dia and m.com_cupom and not m.creator), 0),
-        'sem', coalesce((select sum(m.vendas) from marca m where m.dia = d.dia and not m.com_cupom), 0)
+        'dia', d.dia::date,
+        'creator', coalesce((select sum(m.vendas) from marca m where m.dia = d.dia::date and m.creator), 0),
+        'outros', coalesce((select sum(m.vendas) from marca m where m.dia = d.dia::date and m.com_cupom and not m.creator), 0),
+        'sem', coalesce((select sum(m.vendas) from marca m where m.dia = d.dia::date and not m.com_cupom), 0)
       ) order by d.dia)
-      from generate_series(p_inicio, p_fim, interval '1 day') d(dia)
+      from generate_series(p_inicio::timestamp, p_fim::timestamp, interval '1 day') d(dia)
     ), '[]'::jsonb)
   ) into r;
   return r;
