@@ -69,6 +69,7 @@ Tarefas do time, criação de produtos (4 etapas com checklist) e chuva de ideia
 Análise de todos os cupons, ranking de creators e comissão. Lê `cupons_painel(loja, início, fim)`; a aba Comissões (só admin) lê `cupons_comissoes(loja, mês)`.
 
 - Base: pedidos pagos, sem cancelados. Vendas do cupom = subtotal atual (sem frete, depois do desconto e dos estornos).
-- `cupons`: cadastro por loja e código (tipo `creator` / `promocao` / `pos_venda` / `interno`, nome, redes, Pix, % de comissão, início da comissão, saldo do sistema antigo). Cupom sem cadastro recebe tipo sugerido por `cupom_tipo_sugerido` (5% com nome de pessoa = creator).
+- Canal de divulgação pelo começo do código (regra fixa, vale para todo o histórico): `VIP…` = Grupo VIP (WhatsApp), `APP…` = App (push). E-mail ainda sem padrão.
+- `cupons`: cadastro por loja e código (tipo `vip` / `app` / `creator` / `promocao` / `pos_venda` / `interno`, nome, redes, Pix, % de comissão, início da comissão, saldo do sistema antigo). Cupom sem cadastro recebe tipo sugerido por `cupom_tipo_sugerido` (5% com nome de pessoa = creator).
 - Comissão: % (padrão 10) sobre as vendas do mês; abaixo de R$ 100 acumula. `comissoes_pagas` guarda o que foi pago por mês (`comissao_pagar`, `comissao_desfazer`). Conta a partir de 01/11/2026.
 - Pix e comissão só para admin; o time edita tipo, nome e redes por `cupom_salvar`.
