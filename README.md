@@ -63,3 +63,12 @@ Tarefas do time, criação de produtos (4 etapas com checklist) e chuva de ideia
 - Tabelas: `equipe`, `etiquetas`, `tarefas`, `colecoes`, `modelos`, `produtos_criacao`, `ideias`; imagens no bucket privado `time`.
 - **Código dos produtos** (`AP0001`, `AB0001`…): só os que vieram do Fazeno. O banco não deixa o site criar nem mudar código; produto novo fica "Sem código" até a nomenclatura nova ser definida.
 - Avisos no Discord pela Edge Function `avisar-discord` (nova tarefa, @menção em produto, botão Lançar). Segredo: `DISCORD_BOT_TOKEN`. Quem é marcado vem de `equipe.discord_id`.
+
+## Cupons (tela Cupons, por loja)
+
+Análise de todos os cupons, ranking de creators e comissão. Lê `cupons_painel(loja, início, fim)`; a aba Comissões (só admin) lê `cupons_comissoes(loja, mês)`.
+
+- Base: pedidos pagos, sem cancelados. Vendas do cupom = subtotal atual (sem frete, depois do desconto e dos estornos).
+- `cupons`: cadastro por loja e código (tipo `creator` / `promocao` / `pos_venda` / `interno`, nome, redes, Pix, % de comissão, início da comissão, saldo do sistema antigo). Cupom sem cadastro recebe tipo sugerido por `cupom_tipo_sugerido` (5% com nome de pessoa = creator).
+- Comissão: % (padrão 10) sobre as vendas do mês; abaixo de R$ 100 acumula. `comissoes_pagas` guarda o que foi pago por mês (`comissao_pagar`, `comissao_desfazer`). Conta a partir de 01/11/2026.
+- Pix e comissão só para admin; o time edita tipo, nome e redes por `cupom_salvar`.
