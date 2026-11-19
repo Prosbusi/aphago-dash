@@ -12,6 +12,8 @@ type Ordem = "gasto" | "receita" | "roas" | "unidades" | "cac";
 const ORDENS: [Ordem, string][] = [["gasto", "Investimento"], ["receita", "Receita"], ["roas", "ROAS"], ["unidades", "Unidades"], ["cac", "CAC"]];
 const fmtRoas = (r: number | null) => (r == null ? "—" : `${dec(r, 2)}x`);
 
+const ROAS_MIN_GASTO = 20;
+
 export function Catalogo({ store }: { store: string }) {
   const { period } = usePeriod();
   const { data, error } = useCatalogo(store, period.start, period.end);
@@ -30,7 +32,8 @@ function Conteudo({ d }: { d: Cat }) {
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     const val = (f: FamiliaCat) =>
-      ordem === "roas" ? roas(f.receita, f.gasto) ?? -1 : ordem === "cac" ? (f.unidades ? f.gasto / f.unidades : Infinity) : f[ordem];
+      // ROAS com investimento muito baixo (ex.: R$ 1,52 e uma venda orgânica = 92x) vai para o fim da lista
+      ordem === "roas" ? (f.gasto >= ROAS_MIN_GASTO ? roas(f.receita, f.gasto) ?? -1 : -1 + f.gasto / 1e6) : ordem === "cac" ? (f.unidades ? f.gasto / f.unidades : Infinity) : f[ordem];
     return d.familias
       .filter((f) => todos || f.gasto > 0 || f.anuncios_ligados > 0)
       .filter((f) => !q || `${f.familia} ${f.nome}`.toLowerCase().includes(q))
@@ -72,6 +75,7 @@ function Conteudo({ d }: { d: Cat }) {
               {ORDENS.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
             </select>
           </label>
+          {ordem === "roas" && <p className="m-0 w-full text-xs text-muted">Por ROAS, produtos com menos de R$ {ROAS_MIN_GASTO} de investimento no período ficam no fim: com tão pouco gasto, uma única venda orgânica gera um ROAS enganoso.</p>}
         </div>
 
         {lista.length === 0 ? <Empty>Nenhum produto com anúncio ligado no período.</Empty> : (

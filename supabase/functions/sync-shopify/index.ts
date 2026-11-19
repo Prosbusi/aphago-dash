@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
   }
 
   const { data: state } = await supabase.from("sync_state").select("*").eq("source", stateKey).maybeSingle();
-  let saved: { q?: string; after?: string | null; done?: boolean } = {};
+  let saved: { q?: string; after?: string | null; done?: boolean; desde?: string } = {};
   try { saved = state?.cursor ? JSON.parse(state.cursor) : {}; } catch { saved = {}; }
 
   let q: string;
@@ -332,12 +332,17 @@ Deno.serve(async (req) => {
       after = saved.after ?? null;
     }
   } else {
+    // rodada anterior parou no meio: continua exatamente da última alteração gravada
     const last = state?.last_run_at ? new Date(state.last_run_at) : new Date(Date.now() - 3 * 864e5);
-    q = `updated_at:>='${new Date(last.getTime() - 2 * 3600e3).toISOString()}'`;
+    // só pedidos dos últimos 120 dias: apps às vezes alteram milhares de pedidos antigos de uma vez
+    // (ex.: pedidos de 2023 alterados em massa em 18/11) e isso travava a chegada dos pedidos novos
+    const recentes = new Date(Date.now() - 120 * 864e5).toISOString();
+    q = `updated_at:>='${saved.desde ?? new Date(last.getTime() - 2 * 3600e3).toISOString()}' AND created_at:>='${recentes}'`;
   }
 
   let total = 0;
   let done = false;
+  let ultimaAlteracao: string | null = null;
   try {
     const c = creds(store);
     const token = await getToken(c);
@@ -346,12 +351,16 @@ Deno.serve(async (req) => {
       const rows = data.orders.nodes.map((o: unknown) => mapOrder(store, o));
       await saveOrders(rows);
       total += rows.length;
+      const nodes = data.orders.nodes as { updatedAt?: string }[];
+      if (nodes.length && nodes[nodes.length - 1].updatedAt) ultimaAlteracao = nodes[nodes.length - 1].updatedAt!;
       after = data.orders.pageInfo.endCursor;
       if (!data.orders.pageInfo.hasNextPage) { done = true; break; }
     }
     await supabase.from("sync_state").upsert({
       source: stateKey,
-      cursor: mode === "backfill" ? JSON.stringify({ q, after, done }) : null,
+      // incremental que não terminou guarda até onde chegou (pedidos vêm em ordem de alteração),
+      // senão a próxima rodada recomeça do mesmo ponto e nunca alcança os pedidos novos
+      cursor: mode === "backfill" ? JSON.stringify({ q, after, done }) : !done && ultimaAlteracao ? JSON.stringify({ desde: ultimaAlteracao }) : null,
       last_run_at: mode === "backfill" || done ? new Date(started).toISOString() : state?.last_run_at ?? null,
     });
     await log(stateKey, total, done ? "ok" : "parcial");
