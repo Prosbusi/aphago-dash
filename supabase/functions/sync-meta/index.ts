@@ -4,6 +4,7 @@
 // historico: gasto diário por conta (since/until) em gasto_historico, para o comparativo com o ano anterior.
 // criativos: busca o link de destino dos anúncios sem destino (meta_anuncios); o incremental faz isso para os novos.
 // ligados: atualiza quais anúncios estão ligados agora (o incremental também faz).
+// verificar: confere o token salvo no Pharol (meta_tokens), cadastra contas novas e puxa o gasto delas.
 // contas: lista as contas de anúncio que os tokens enxergam e a loja de cada uma (diagnóstico).
 // Segredos: META_ACCESS_TOKEN_APHAGO, META_ACCESS_TOKEN_ABRASSO (token de usuário do sistema, permissão ads_read).
 // A loja de cada conta vem da tabela ad_accounts: um token pode enxergar contas das duas lojas,
@@ -220,10 +221,46 @@ Deno.serve(async (req) => {
   const store: string = body.store ?? "aphago";
   const mode: string = body.mode ?? "incremental";
   const fonte = `meta${mode === "backfill" ? "_backfill" : ""}:${store}`;
-  const tokens = Object.entries(Deno.env.toObject())
-    .filter(([k, v]) => k.startsWith("META_ACCESS_TOKEN_") && v)
-    .map(([, v]) => v);
+  // tokens salvos no Pharol (Geral → Ajustes) vêm primeiro; os segredos do Supabase continuam valendo
+  const { data: salvos } = await supabase.from("meta_tokens").select("store,token");
+  const tokens = [...new Set([
+    ...(salvos ?? []).map((t: { token: string }) => t.token),
+    ...Object.entries(Deno.env.toObject()).filter(([k, v]) => k.startsWith("META_ACCESS_TOKEN_") && v).map(([, v]) => v),
+  ])];
   if (!tokens.length) return Response.json({ store, error: "nenhum segredo META_ACCESS_TOKEN_* configurado" }, { status: 500 });
+
+  if (mode === "verificar") {
+    // confere o token salvo no Pharol: permissões, contas que ele enxerga; conta nova entra para a loja do token
+    // e já recebe o gasto desde 01/08/2026
+    const { data: t } = await supabase.from("meta_tokens").select("token").eq("store", store).maybeSingle();
+    if (!t?.token) return Response.json({ store, error: "nenhum token salvo" }, { status: 404 });
+    try {
+      const p = await graph(`${GRAPH}/me/permissions?access_token=${t.token}`);
+      const permissoes = (p.data ?? []).filter((x: { status: string }) => x.status === "granted").map((x: { permission: string }) => x.permission);
+      const lista = await contas(t.token);
+      const { data: mapa } = await supabase.from("ad_accounts").select("account_id,store,ativo").eq("platform", "meta");
+      const conhecidas = new Map((mapa ?? []).map((m) => [m.account_id, m]));
+      const novas = lista.filter((c) => !conhecidas.has(c.id.replace(/^act_/, "")));
+      if (novas.length) {
+        await supabase.from("ad_accounts").insert(novas.map((c) => ({ platform: "meta", account_id: c.id.replace(/^act_/, ""), store, nome: c.name, ativo: true })));
+      }
+      const resumo = lista.map((c) => {
+        const id = c.id.replace(/^act_/, "");
+        return { id, nome: c.name, ativa: c.account_status === 1, loja: conhecidas.get(id)?.store ?? store, nova: !conhecidas.has(id) };
+      });
+      await supabase.from("meta_tokens").update({ permissoes, contas: resumo, erro: null, verificado_em: new Date().toISOString() }).eq("store", store);
+      let linhas = 0;
+      for (const c of novas.filter((x) => x.account_status === 1)) {
+        const rows = await insights(store, t.token, c.id, body.since ?? "2026-08-01", isoSP(new Date()));
+        await gravar(store, c.id, body.since ?? "2026-08-01", isoSP(new Date()), rows);
+        linhas += rows.length;
+      }
+      return Response.json({ store, mode, permissoes, contas: resumo, novas: novas.map((c) => c.name), linhas });
+    } catch (e) {
+      await supabase.from("meta_tokens").update({ erro: String(e), verificado_em: new Date().toISOString() }).eq("store", store);
+      return Response.json({ store, mode, error: String(e) }, { status: 500 });
+    }
+  }
 
   if (mode === "permissoes") {
     // o que cada token pode fazer (ads_read = só leitura; ads_management = pode editar anúncios)
