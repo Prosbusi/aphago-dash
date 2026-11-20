@@ -25,7 +25,8 @@ export function Catalogo({ store }: { store: string }) {
 function Conteudo({ d }: { d: Cat }) {
   const [ordem, setOrdem] = useState<Ordem>("gasto");
   const [busca, setBusca] = useState("");
-  const [todos, setTodos] = useState(false);
+  // por padrão mostra tudo que vendeu ou tem anúncio; o botão restringe aos produtos com anúncio
+  const [soAnuncio, setSoAnuncio] = useState(false);
   const [aberta, setAberta] = useState<string | null>(null);
   const t = d.totais;
 
@@ -35,10 +36,10 @@ function Conteudo({ d }: { d: Cat }) {
       // ROAS com investimento muito baixo (ex.: R$ 1,52 e uma venda orgânica = 92x) vai para o fim da lista
       ordem === "roas" ? (f.gasto >= ROAS_MIN_GASTO ? roas(f.receita, f.gasto) ?? -1 : -1 + f.gasto / 1e6) : ordem === "cac" ? (f.unidades ? f.gasto / f.unidades : Infinity) : f[ordem];
     return d.familias
-      .filter((f) => todos || f.gasto > 0 || f.anuncios_ligados > 0)
+      .filter((f) => !soAnuncio || busca.trim() !== "" || f.gasto > 0 || f.anuncios_ligados > 0)
       .filter((f) => !q || `${f.familia} ${f.nome}`.toLowerCase().includes(q))
       .sort((a, b) => (ordem === "cac" ? val(a) - val(b) : val(b) - val(a)));
-  }, [d.familias, ordem, busca, todos]);
+  }, [d.familias, ordem, busca, soAnuncio]);
   const maxGasto = Math.max(...lista.map((f) => f.gasto), 1);
   // produtos vendidos de cada família (já vêm do mais vendido para o menos vendido)
   const porFamilia = useMemo(() => {
@@ -66,9 +67,9 @@ function Conteudo({ d }: { d: Cat }) {
         <div className="flex flex-wrap items-center gap-3">
           <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código ou produto"
             aria-label="Buscar código ou produto" className="min-h-10 w-full max-w-xs rounded-lg border border-line px-3 text-sm" />
-          <button type="button" aria-pressed={todos} onClick={() => setTodos((x) => !x)}
-            className={`min-h-9 rounded-[8px] border border-line px-3 text-[13px] font-semibold ${todos ? "bg-ink text-white" : "hover:bg-soft"}`}>
-            {todos ? "Mostrando todos os produtos" : "Mostrar produtos sem anúncio"}
+          <button type="button" aria-pressed={soAnuncio} onClick={() => setSoAnuncio((x) => !x)}
+            className={`min-h-9 rounded-[8px] border border-line px-3 text-[13px] font-semibold ${soAnuncio ? "bg-ink text-white" : "hover:bg-soft"}`}>
+            {soAnuncio ? "Só produtos com anúncio" : "Mostrar só produtos com anúncio"}
           </button>
           <label className="ml-auto flex items-center gap-2 text-[13px] text-muted">Ordenar por
             <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="min-h-9 rounded-[8px] border border-line bg-white px-2 text-ink">
@@ -78,7 +79,7 @@ function Conteudo({ d }: { d: Cat }) {
           {ordem === "roas" && <p className="m-0 w-full text-xs text-muted">Por ROAS, produtos com menos de R$ {ROAS_MIN_GASTO} de investimento no período ficam no fim: com tão pouco gasto, uma única venda orgânica gera um ROAS enganoso.</p>}
         </div>
 
-        {lista.length === 0 ? <Empty>Nenhum produto com anúncio ligado no período.</Empty> : (
+        {lista.length === 0 ? <Empty>{busca.trim() ? "Nenhum produto com venda ou anúncio no período para essa busca." : "Nenhum produto com venda ou anúncio no período."}</Empty> : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[1080px] border-collapse text-sm">
               <thead>
