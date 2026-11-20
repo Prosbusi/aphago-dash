@@ -36,7 +36,7 @@ query ($first: Int!, $after: String, $q: String!) {
       discountCodes
       customAttributes { key value }
       lineItems(first: 30) {
-        nodes { id title variantTitle sku quantity product { id } discountedTotalSet { shopMoney { amount } } }
+        nodes { id title variantTitle sku quantity currentQuantity product { id } discountedTotalSet { shopMoney { amount } } }
       }
       customerJourneySummary {
         ready customerOrderIndex daysToConversion momentsCount { count }
@@ -191,6 +191,7 @@ function mapOrder(store: string, o: any) {
     variant_title: li.variantTitle,
     sku: li.sku,
     quantity: li.quantity,
+    current_quantity: li.currentQuantity ?? null,
     amount: num(li.discountedTotalSet) ?? 0,
   }));
   const moments: Visit[] = (j?.moments?.nodes ?? []).filter((m: Visit) => m?.id);
