@@ -25,6 +25,37 @@
     try { var u = new URL(url, location.href); return u.host + u.pathname; } catch (e) { return String(url).split('?')[0]; }
   }
 
+  var CHAVES = /effect|type|provider|model|prompt|name|style|tool|action|mode|kind/i;
+  function assinatura(body) {
+    try {
+      if (!body) return null;
+      var pares = [], chaves = [];
+      var add = function (k, v) {
+        chaves.push(k);
+        if (CHAVES.test(k) && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) pares.push(k + '=' + String(v).slice(0, 60));
+      };
+      var anda = function (o, pre, n) {
+        if (!o || typeof o !== 'object' || n > 3) return;
+        Object.keys(o).forEach(function (k) {
+          var v = o[k];
+          if (v && typeof v === 'object') anda(v, pre + k + '.', n + 1); else add(pre + k, v);
+        });
+      };
+      if (typeof body === 'string') {
+        var j = null;
+        try { j = JSON.parse(body); } catch (e) {}
+        if (j) anda(j, '', 0); else new URLSearchParams(body).forEach(function (v, k) { add(k, v); });
+      } else if (typeof FormData !== 'undefined' && body instanceof FormData) {
+        body.forEach(function (v, k) { if (typeof v === 'string') add(k, v); else chaves.push(k + '[arquivo]'); });
+      } else if (body instanceof URLSearchParams) {
+        body.forEach(function (v, k) { add(k, v); });
+      } else {
+        return 'corpo:' + (body.constructor && body.constructor.name);
+      }
+      return (pares.length ? pares.join('&') : 'chaves:' + chaves.slice(0, 25).join(',')).slice(0, 400);
+    } catch (e) { return null; }
+  }
+
   function check(url) {
     url = String(url || '');
     if (url.indexOf(ENDPOINT) === 0) return false;
@@ -33,12 +64,13 @@
   }
 
   if (origFetch) {
-    window.fetch = function (input) {
+    window.fetch = function (input, init) {
       var url = typeof input === 'string' ? input : (input && input.url) || '';
       var p = origFetch.apply(this, arguments);
       if (check(url)) {
-        p.then(function (res) { send('geracao', { status: res.status, ok: res.ok, url: limpa(url) }); })
-         .catch(function () { send('geracao', { status: 0, ok: false, url: limpa(url) }); });
+        var ef = assinatura(init && init.body);
+        p.then(function (res) { send('geracao', { status: res.status, ok: res.ok, url: limpa(url), efeito: ef }); })
+         .catch(function () { send('geracao', { status: 0, ok: false, url: limpa(url), efeito: ef }); });
       }
       return p;
     };
@@ -50,11 +82,12 @@
     this.__phUrl = url;
     return xOpen.apply(this, arguments);
   };
-  XMLHttpRequest.prototype.send = function () {
+  XMLHttpRequest.prototype.send = function (body) {
     var xhr = this;
     if (check(xhr.__phUrl)) {
+      var ef = assinatura(body);
       xhr.addEventListener('loadend', function () {
-        send('geracao', { status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300, url: limpa(xhr.__phUrl) });
+        send('geracao', { status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300, url: limpa(xhr.__phUrl), efeito: ef });
       });
     }
     return xSend.apply(this, arguments);

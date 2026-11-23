@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response(null, { status: 405, headers: cors });
   try {
     const corpo = await req.text();
-    if (corpo.length > 4000) return new Response(null, { status: 413, headers: cors });
+    if (corpo.length > 6000) return new Response(null, { status: 413, headers: cors });
     const b = JSON.parse(corpo);
     const evento = b.evento === "upload" ? "upload" : b.evento === "geracao" ? "geracao" : null;
     const store = await lojaDe(String(b.shop ?? "").toLowerCase(), String(b.host ?? "").toLowerCase());
@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
         status,
         aid: txt(b.aid, 100),
         url: txt(b.url, 300),
+        efeito: txt(b.efeito, 400),
       });
       if (error) console.error("ia_eventos", error.message);
     }
