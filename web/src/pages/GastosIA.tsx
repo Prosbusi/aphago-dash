@@ -15,8 +15,10 @@ type Produto = {
 };
 type Dia = { dia: string; geracoes: number; falhas: number; uploads: number; custo: number | null };
 type Fatura = { mes: string; valor: number; requisicoes: number | null; obs: string | null; geracoes: number };
+type Auto = { atualizado_em: string | null; ultimo_dia_custo: string | null; moeda: string | null; custo_periodo: number | null; requisicoes_periodo: number | null };
 type Painel = {
   admin: boolean;
+  auto: Auto | null;
   custo_unitario: number | null;
   faturas: Fatura[] | null;
   primeiro_evento: string | null;
@@ -212,6 +214,28 @@ function Visao({ d }: { d: Painel }) {
   );
 }
 
+function Automatico({ a }: { a: Auto | null }) {
+  if (!a?.atualizado_em) {
+    return (
+      <p className="mb-0 mt-3 text-sm text-body">
+        <strong>Automático:</strong> aguardando a primeira leitura da fatura no Google Cloud (roda de hora em hora).
+      </p>
+    );
+  }
+  const quando = new Date(a.atualizado_em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="mt-3 rounded-lg bg-soft px-4 py-3 text-sm text-body">
+      <strong>Automático (Google Cloud):</strong> custo real por dia, lido da fatura do Gemini, e requisições do Cloud Monitoring.
+      Custo por geração de cada dia = custo ÷ requisições dos 7 dias até ele.
+      <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">
+        <span>Atualizado em {quando}</span>
+        <span>Fatura até {a.ultimo_dia_custo ? ddmm(a.ultimo_dia_custo) : "—"}</span>
+        <span>No período: {a.custo_periodo != null ? money2(a.custo_periodo) : "—"} · {a.requisicoes_periodo != null ? `${num(a.requisicoes_periodo)} requisições` : "requisições ainda não lidas"}</span>
+      </div>
+    </div>
+  );
+}
+
 function Faturas({ d, onSalvo }: { d: Painel; onSalvo: () => void }) {
   const mesAtual = `${todaySP().slice(0, 7)}`;
   const [mes, setMes] = useState(mesAtual);
@@ -241,10 +265,10 @@ function Faturas({ d, onSalvo }: { d: Painel; onSalvo: () => void }) {
 
   return (
     <Card title="Fatura do Gemini" extra="só administradores · vale para as duas lojas">
-      <p className="mb-0 mt-3 text-sm text-body">
-        Lance o valor do mês em reais. O custo de cada geração é a fatura dividida pelas requisições do mês.
-        Se informar as requisições do painel do Gemini (Uso da API → Total de solicitações), o cálculo usa esse número;
-        sem ele, usa as gerações que o Pharol registrou. Mês sem fatura usa o custo por geração do último mês lançado.
+      <Automatico a={d.auto} />
+      <p className="mb-0 mt-4 text-sm text-body">
+        <strong>Lançamento manual (reserva).</strong> Só é usado nos dias sem dado automático. O custo de cada geração é a fatura do mês
+        dividida pelas requisições do mês (as do painel do Gemini, se informadas; senão, as gerações que o Pharol registrou).
       </p>
       <form onSubmit={salvar} className="mt-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
