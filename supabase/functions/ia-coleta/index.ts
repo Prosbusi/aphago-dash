@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
         ok: evento === "geracao" ? b.ok !== false : null,
         status,
         aid: txt(b.aid, 100),
+        url: txt(b.url, 300),
       });
       if (error) console.error("ia_eventos", error.message);
     }

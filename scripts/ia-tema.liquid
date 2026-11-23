@@ -20,6 +20,10 @@
     } catch (e) {}
   }
 
+  function limpa(url) {
+    try { var u = new URL(url, location.href); return u.host + u.pathname; } catch (e) { return String(url).split('?')[0]; }
+  }
+
   function check(url) {
     url = String(url || '');
     if (url.indexOf(ENDPOINT) === 0) return false;
@@ -32,8 +36,8 @@
       var url = typeof input === 'string' ? input : (input && input.url) || '';
       var p = origFetch.apply(this, arguments);
       if (check(url)) {
-        p.then(function (res) { send('geracao', { status: res.status, ok: res.ok }); })
-         .catch(function () { send('geracao', { status: 0, ok: false }); });
+        p.then(function (res) { send('geracao', { status: res.status, ok: res.ok, url: limpa(url) }); })
+         .catch(function () { send('geracao', { status: 0, ok: false, url: limpa(url) }); });
       }
       return p;
     };
@@ -49,7 +53,7 @@
     var xhr = this;
     if (check(xhr.__phUrl)) {
       xhr.addEventListener('loadend', function () {
-        send('geracao', { status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300 });
+        send('geracao', { status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300, url: limpa(xhr.__phUrl) });
       });
     }
     return xSend.apply(this, arguments);
