@@ -1,0 +1,64 @@
+{% if template.name == 'product' %}
+<script>
+(function () {
+  var GEN_PATTERN = /generativelanguage\.googleapis\.com|customily.*(generat|\/ai)/i;
+  var ENDPOINT = 'https://gajxzdfcttcocsnjdvha.supabase.co/functions/v1/ia-coleta';
+  var DEBUG = /[?&]ai_debug=1/.test(location.search);
+  var BASE = {
+    shop: {{ shop.permanent_domain | json }},
+    host: location.hostname,
+    product_id: {{ product.id | json }},
+    handle: {{ product.handle | json }}
+  };
+  var origFetch = window.fetch;
+
+  function send(evento, extra) {
+    var body = JSON.stringify(Object.assign({ evento: evento }, BASE, extra || {}));
+    if (DEBUG) console.log('[Pharol IA] enviado:', body);
+    try {
+      origFetch(ENDPOINT, { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function check(url) {
+    url = String(url || '');
+    if (url.indexOf(ENDPOINT) === 0) return false;
+    if (DEBUG && /customily|googleapis/i.test(url)) console.log('[Pharol IA] request:', url);
+    return GEN_PATTERN.test(url);
+  }
+
+  if (origFetch) {
+    window.fetch = function (input) {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      var p = origFetch.apply(this, arguments);
+      if (check(url)) {
+        p.then(function (res) { send('geracao', { status: res.status, ok: res.ok }); })
+         .catch(function () { send('geracao', { status: 0, ok: false }); });
+      }
+      return p;
+    };
+  }
+
+  var xOpen = XMLHttpRequest.prototype.open;
+  var xSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    this.__phUrl = url;
+    return xOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function () {
+    var xhr = this;
+    if (check(xhr.__phUrl)) {
+      xhr.addEventListener('loadend', function () {
+        send('geracao', { status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300 });
+      });
+    }
+    return xSend.apply(this, arguments);
+  };
+
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (el && el.matches && el.matches('input[type="file"]') && el.files && el.files.length) send('upload');
+  }, true);
+})();
+</script>
+{% endif %}

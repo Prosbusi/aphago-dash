@@ -18,6 +18,7 @@ import { Projecao } from "./pages/Projecao";
 import { Acessos } from "./pages/Acessos";
 import { Inicio } from "./pages/Inicio";
 import { Cupons } from "./pages/Cupons";
+import { GastosIA } from "./pages/GastosIA";
 import { useAuth } from "./auth";
 import { LOJAS } from "./lib/store";
 import { Tarefas } from "./pages/time/Tarefas";
@@ -64,6 +65,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path=":store/jornada" element={<LojaValida><Jornada /></LojaValida>} />
               <Route path=":store/retorno" element={<LojaValida><Retorno /></LojaValida>} />
               <Route path=":store/cupons" element={<LojaValida><Cupons /></LojaValida>} />
+              <Route path=":store/ia" element={<LojaValida><GastosIA /></LojaValida>} />
               <Route path=":store/lancamentos" element={<LojaValida><Lancamentos /></LojaValida>} />
               <Route path="*" element={<Entrada />} />
             </Route>

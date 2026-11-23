@@ -73,3 +73,11 @@ Análise de todos os cupons, ranking de creators e comissão. Lê `cupons_painel
 - `cupons`: cadastro por loja e código (tipo `vip` / `app` / `creator` / `promocao` / `pos_venda` / `interno`, nome, redes, Pix, % de comissão, início da comissão, saldo do sistema antigo). Cupom sem cadastro recebe tipo sugerido por `cupom_tipo_sugerido` (5% com nome de pessoa = creator).
 - Comissão: % (padrão 10) sobre as vendas do mês; abaixo de R$ 100 acumula. `comissoes_pagas` guarda o que foi pago por mês (`comissao_pagar`, `comissao_desfazer`). Conta a partir de 01/11/2026.
 - Pix e comissão só para admin; o time edita tipo, nome e redes por `cupom_salvar`.
+
+## Gastos com IA (tela Gastos com IA, por loja)
+
+Imagens geradas pelo Customily (Gemini) na página do produto: gerações, fotos enviadas, erros e custo estimado por produto, comparados com pedidos e receita.
+
+- Coleta: `scripts/ia-tema.liquid` no `theme.liquid` de cada loja (logo depois de `<head>`, antes de `{{ content_for_header }}`). Ele observa as requisições de geração do widget (`GEN_PATTERN`) e o campo de upload, e envia para a Edge Function `ia-coleta`, que grava em `ia_eventos`. Para achar a URL da geração: abrir um produto com `?ai_debug=1` e ver o console.
+- Custo: `ia_custos` guarda a fatura mensal do Gemini (as duas lojas) e, opcional, as requisições do mês no painel do Gemini. Custo por geração = fatura ÷ requisições (ou ÷ gerações registradas). Mês sem fatura usa o último custo lançado. Lançado na própria tela (`ia_custo_salvar`, só admin).
+- A tela lê `ia_painel(loja, início, fim)`. Produtos agrupados pela família; custo só para admin.
