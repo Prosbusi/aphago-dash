@@ -98,7 +98,9 @@ function estornosDoPedido(store: string, o: any): Estorno[] {
     }))
     .filter((e: Estorno) => e.valor > 0);
 }
-async function gravarEstornos(lista: Estorno[]) {
+async function gravarEstornos(todos: Estorno[]) {
+  // o mesmo pedido pode vir nas duas buscas (criados e alterados recentemente): um reembolso só uma vez
+  const lista = [...new Map(todos.map((e) => [e.refund_id, e])).values()];
   for (let i = 0; i < lista.length; i += 500) {
     const { error } = await supabase.from("estornos").upsert(lista.slice(i, i + 500), { onConflict: "refund_id" });
     if (error) throw new Error(`estornos: ${error.message}`);
@@ -161,8 +163,10 @@ async function recente(store: string) {
     for (const o of data.orders.nodes as any[]) estornos.push(...estornosDoPedido(store, o));
     after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
   } while (after);
+  // vendas primeiro: um problema nos estornos não pode deixar a venda do dia parada
+  const gravados = await gravar(store, desde, ate, dias);
   await gravarEstornos(estornos);
-  return { desde, ate, dias: await gravar(store, desde, ate, dias), estornos: estornos.length };
+  return { desde, ate, dias: gravados, estornos: estornos.length };
 }
 
 // Operação em massa (bulk) de um intervalo: devolve o id da operação.
