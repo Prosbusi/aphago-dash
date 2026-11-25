@@ -4,6 +4,7 @@ import { useDataVersion } from "../lib/data";
 import { supabase } from "../lib/supabase";
 import { ddmm, dec, money } from "../lib/format";
 import { Card, ErrorBox, Kpi, Loading, PageTitle } from "../components/ui";
+import { Dica } from "../components/Dica";
 
 type Estorno = { pedido: string | null; pedido_dia: string; valor: number; cancelado: boolean };
 type Dia = {
@@ -25,9 +26,9 @@ function Bandeira({ valor, itens }: { valor: number; itens: Estorno[] | null }) 
   const detalhe = (itens ?? []).map((e) => `#${e.pedido ?? "?"} de ${ddmm(e.pedido_dia)}${e.cancelado ? " (cancelado)" : ""}: ${money(e.valor)}`).join("\n");
   const texto = `Estornos no dia: ${money(valor)} já descontados das vendas\n${detalhe}`;
   return (
-    <span title={texto} aria-label={texto} role="img" className="ml-1.5 inline-flex cursor-help items-center align-middle text-ruim">
+    <Dica texto={texto} className="ml-1.5 align-middle text-ruim">
       <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M5 2a1 1 0 0 1 1 1v1h11.5a1 1 0 0 1 .8 1.6L15.75 9l2.55 3.4a1 1 0 0 1-.8 1.6H6v7a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1Z" /></svg>
-    </span>
+    </Dica>
   );
 }
 

@@ -6,6 +6,7 @@ import { delta, diaMes, money, num } from "../lib/format";
 import { ACCENT } from "../components/Layout";
 import { ErrorBox, Loading, PageTitle } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
+import { Dica } from "../components/Dica";
 
 type Valores = { vendas: number; estornos: number; pedidos: number; itens: number; custo: number; marketing: number; lucro: number };
 type Loja = { store: string; nome: string; atual: Valores; anterior: Valores };
@@ -36,7 +37,7 @@ function Quadro({ valor, nome, ajuda, variacao, inverter = false, tom = "neutro"
       <div className="text-[22px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{valor}</div>
       <div className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-muted sm:text-sm">
         {nome}
-        <span title={ajuda} aria-label={ajuda} role="img" className="inline-flex h-[18px] w-[18px] shrink-0 cursor-help items-center justify-center rounded-full border border-current text-[11px] font-bold">?</span>
+        <Dica texto={ajuda} className="h-[18px] w-[18px] shrink-0 border border-current text-[11px] font-bold">?</Dica>
       </div>
       {variacao != null && (
         <div className={`mt-1 text-xs font-bold ${bom ? "text-bom" : "text-ruim"}`}>
