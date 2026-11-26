@@ -11,8 +11,9 @@
 //   conferir        { codigo }              → o que já existe na Shopify com o código × o que falta
 //   buscar_codigo   { url? | handle? | busca? } → código do produto pelo link de destino do anúncio, handle ou nome
 //   lista_codigos   {}                      → todas as famílias da loja com nome e links dos produtos
-//   envios_do_dia   { canal?: "vip", data? } → mensagens aprovadas para enviar hoje (Grupo VIP, push, e-mail)
-//   envio_feito     { id, erro? }           → marca a mensagem como enviada (ou com erro)
+//   envios_do_dia   { canal?: "vip", data? } → mensagens aprovadas para enviar hoje, com o texto pronto de cada grupo VIP
+//   envio_feito     { id, grupo?, erro? }   → confirma o envio num grupo (ou em todos); erro = não conseguiu
+//   grupos          {}                      → grupos VIP da loja (código e nome)
 //   planejar_envios { canal?: "vip", itens[] } → manda o planejamento para o Pharol (entra como rascunho)
 //   envios          { canal?: "vip", de?, ate? } → lista do período com resultado de cada envio
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -42,9 +43,10 @@ const AJUDA = {
     conferir: "{ codigo } → modelos planejados × produtos encontrados na Shopify",
     buscar_codigo: "{ url: 'https://www.aphago.com.br/products/meu-crush' } (ou handle, ou busca por nome) → família e código do modelo; use para nomear anúncios pelo link de destino",
     lista_codigos: "{} → todas as famílias da loja (código, nome, links dos produtos); bom para renomear muitos anúncios de uma vez",
-    envios_do_dia: "{ canal?: 'vip' | 'push' | 'email', data?: 'AAAA-MM-DD' } → mensagens APROVADAS do dia (padrão: hoje, horário de Brasília) que ainda não foram enviadas. Envie só as que têm pode_enviar = true, com o texto e o link exatamente como vieram.",
-    envio_feito: "{ id, erro?: 'motivo' } → depois de enviar, confirme com o id. Se não conseguiu, mande erro com o motivo.",
-    planejar_envios: "{ canal?: 'vip', itens: [{ enviar_em: '2026-12-01T09:00-03:00', texto, url, cupom?, campanha?, tema?, imagem_url?, titulo? }] } → grava o planejamento no Pharol como rascunho. O Pharol monta o link com UTM sozinho (não coloque utm no url). tema vira o fim do utm_content (ex.: 'meu-crush' → 0112-meu-crush).",
+    envios_do_dia: "{ canal?: 'vip' | 'push' | 'email', data?: 'AAAA-MM-DD' } → mensagens APROVADAS do dia (padrão: hoje, horário de Brasília). Cada mensagem traz 'envios': um item por grupo VIP que ainda não recebeu, com o texto pronto (o link do grupo já está dentro). Envie só as que têm pode_enviar = true, cada texto no seu grupo, exatamente como veio, com a imagem_url se houver.",
+    envio_feito: "{ id, grupo: 'vip1' } → confirme cada grupo depois de enviar. Sem grupo = enviada em todos. Se não conseguiu: { id, grupo, erro: 'motivo' }.",
+    grupos: "{} → grupos VIP da loja (código usado no utm_term e nome)",
+    planejar_envios: "{ canal?: 'vip', itens: [{ enviar_em: '2026-12-01T09:00-03:00', texto, url, cupom?, campanha?, tema?, imagem_url?, titulo?, grupos?: ['vip1'] }] } → grava o planejamento no Pharol como rascunho. No texto, escreva {link} onde o link deve entrar. url = página do produto sem UTM: o Pharol monta o link de cada grupo, já aplicando o cupom (/discount/CUPOM?redirect=…). tema vira o fim do utm_content (ex.: 'meu-crush' → 0112-meu-crush). Sem grupos = todos os grupos.",
     envios: "{ canal?: 'vip', de?: 'AAAA-MM-DD', ate?: 'AAAA-MM-DD' } → envios do período (padrão: mês atual) com status e resultado: pedidos e vendas pelo link, pedidos com o cupom em 7 dias",
   },
   itens_do_checklist: ITENS,
@@ -212,28 +214,29 @@ Deno.serve(async (req) => {
       const store = lojaDe(loja, body);
       const canal = canalDe(body);
       const dia = /^\d{4}-\d{2}-\d{2}$/.test(String(body.data ?? "")) ? String(body.data) : hojeSP();
-      const { data, error } = await supabase.from("comunicacao_envios")
-        .select("id,enviar_em,titulo,texto,link,cupom,imagem_url,campanha,extras")
-        .eq("store", store).eq("canal", canal).eq("status", "aprovado")
-        .gte("enviar_em", `${dia}T00:00:00-03:00`).lt("enviar_em", `${dia}T23:59:59.999-03:00`).order("enviar_em");
+      const { data, error } = await supabase.rpc("comunicacao_do_dia", { p_store: store, p_canal: canal, p_dia: dia });
       if (error) throw new Error(error.message);
-      const agora = Date.now();
+      const lista = (data ?? []) as unknown[];
       r = {
-        dia, canal,
-        envios: (data ?? []).map((e) => ({ ...e, pode_enviar: new Date(e.enviar_em).getTime() <= agora + 15 * 60_000 })),
-        lembrete: data?.length ? "Depois de enviar cada uma, use envio_feito com o id." : "Nenhuma mensagem aprovada para este dia. Não envie nada e avise o time.",
+        dia, canal, mensagens: lista,
+        lembrete: lista.length
+          ? "Para cada mensagem com pode_enviar = true: envie cada item de 'envios' no grupo indicado, com o texto exatamente como veio, e depois chame envio_feito com o id e o grupo."
+          : "Nenhuma mensagem aprovada para este dia. Não envie nada e avise o time.",
       };
     } else if (acao === "envio_feito") {
       const store = lojaDe(loja, body);
       const id = String(body.id ?? "");
       if (!id) throw new Error("Mande o id do envio");
-      const erro = body.erro ? String(body.erro).slice(0, 500) : null;
-      const { data, error } = await supabase.from("comunicacao_envios")
-        .update({ status: erro ? "erro" : "enviado", enviado_em: new Date().toISOString(), envio_obs: erro, atualizado_por: "grok" })
-        .eq("id", id).eq("store", store).in("status", ["aprovado", "erro"]).select("id,status").maybeSingle();
+      const { data, error } = await supabase.rpc("comunicacao_marcar", {
+        p_store: store, p_id: id, p_grupo: body.grupo ? String(body.grupo) : null, p_erro: body.erro ? String(body.erro) : null,
+      });
       if (error) throw new Error(error.message);
-      if (!data) throw new Error("Envio não encontrado, de outra loja ou que não estava aprovado");
-      r = { ok: true, ...data };
+      r = { ok: true, ...(data as Record<string, unknown>) };
+    } else if (acao === "grupos") {
+      const store = lojaDe(loja, body);
+      const { data, error } = await supabase.rpc("comunicacao_grupos_lista", { p_store: store, p_canal: canalDe(body) });
+      if (error) throw new Error(error.message);
+      r = { grupos: data };
     } else if (acao === "planejar_envios") {
       const store = lojaDe(loja, body);
       const canal = canalDe(body);
@@ -247,6 +250,7 @@ Deno.serve(async (req) => {
           enviar_em: quando.toISOString(), texto: String(i.texto ?? ""), titulo: String(i.titulo ?? ""), url: String(i.url ?? ""),
           cupom: i.cupom ? String(i.cupom) : null, campanha: String(i.campanha ?? ""), tema: String(i.tema ?? ""), imagem_url: i.imagem_url ? String(i.imagem_url) : "",
           extras: typeof i.extras === "object" && i.extras ? i.extras : {},
+          ...(Array.isArray(i.grupos) ? { grupos: i.grupos.map(String) } : {}),
         };
       });
       const { data, error } = await supabase.rpc("comunicacao_importar", { p_store: store, p_canal: canal, p_itens: limpos });
