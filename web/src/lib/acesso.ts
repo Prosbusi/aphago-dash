@@ -19,6 +19,10 @@ export const telasLoja = (id: string): Tela[] => [
   { chave: `${id}:cupons`, area: id, nome: "Cupons", rota: `/${id}/cupons` },
   { chave: `${id}:ia`, area: id, nome: "Gastos com IA", rota: `/${id}/ia` },
   { chave: `${id}:lancamentos`, area: id, nome: "Lançamentos", rota: `/${id}/lancamentos` },
+  { chave: `${id}:calendario`, area: id, nome: "Calendário", rota: `/${id}/comunicacao/calendario` },
+  { chave: `${id}:vip`, area: id, nome: "Grupo VIP", rota: `/${id}/comunicacao/vip` },
+  { chave: `${id}:push`, area: id, nome: "Push", rota: `/${id}/comunicacao/push` },
+  { chave: `${id}:email`, area: id, nome: "E-mail", rota: `/${id}/comunicacao/email` },
 ];
 
 export const TELAS_TIME: Tela[] = [

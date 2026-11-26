@@ -25,6 +25,7 @@ import { Tarefas } from "./pages/time/Tarefas";
 import { Produtos as ProdutosCriacao } from "./pages/time/Produtos";
 import { Ideias } from "./pages/time/Ideias";
 import { GrokConfig } from "./pages/time/Grok";
+import { Comunicacao } from "./pages/Comunicacao";
 
 /** Tela inicial: o administrador cai no Início; os demais, no Resumo (ou na primeira tela liberada). */
 function Entrada() {
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path=":store/cupons" element={<LojaValida><Cupons /></LojaValida>} />
               <Route path=":store/ia" element={<LojaValida><GastosIA /></LojaValida>} />
               <Route path=":store/lancamentos" element={<LojaValida><Lancamentos /></LojaValida>} />
+              <Route path=":store/comunicacao/:canal" element={<LojaValida><Comunicacao /></LojaValida>} />
               <Route path="*" element={<Entrada />} />
             </Route>
           </Routes>
