@@ -14,7 +14,7 @@ export type CanalManual = {
 
 /** Canais em que a UTM é colocada à mão. Anúncios preenchem sozinhos pelo modelo de URL da plataforma. */
 export const CANAIS: CanalManual[] = [
-  { id: "wa-grupo", nome: "WhatsApp grupo VIP", source: "whatsapp", medium: "grupo", dica: "a mensagem do disparo, ex.: chamada-1, lembrete, ultimas-horas", exemplo: "disparo-26out" },
+  { id: "wa-grupo", nome: "WhatsApp grupo VIP", source: "whatsapp", medium: "grupo-vip", dica: "a mensagem do disparo, ex.: chamada-1, lembrete, ultimas-horas", exemplo: "disparo-26out" },
   { id: "wa-individual", nome: "WhatsApp individual", source: "whatsapp", medium: "individual", dica: "o template ou a mensagem, ex.: carrinho-abandonado, pos-venda", exemplo: "disparo-26out" },
   { id: "email", nome: "E-mail", source: "email", medium: "email", dica: "onde está o link no e-mail, ex.: botao-topo, banner, produto-1", exemplo: "envio-26out" },
   { id: "push", nome: "Push do app", source: "app", medium: "push", dica: "a notificação, ex.: push-1, push-lembrete", exemplo: "push-26out" },
