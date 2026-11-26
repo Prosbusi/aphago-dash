@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import type { StoreId } from "./data";
 
 export const LOJAS: { id: StoreId; nome: string; cor: string }[] = [
-  { id: "aphago", nome: "Aphago", cor: "#A065E7" },
+  { id: "aphago", nome: "Aphago", cor: "#7C5CE0" },
   { id: "abrasso", nome: "Abrasso", cor: "#9D2235" },
 ];
 

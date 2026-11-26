@@ -107,7 +107,7 @@ function CartaoIdeia({ i, prod, onVirar, onEditar, onApagado }: {
   // links de referência (da pesquisa ou do resumo) aparecem logo na abertura
   const links = [...new Set(`${i.resumo}\n${i.descricao}`.match(/https?:\/\/[^\s)<>"']+/g) ?? [])].map((u) => u.replace(/[.,;:]+$/, ""));
   return (
-    <section className={`rounded-[14px] border border-l-4 border-l-roxo bg-white ${i.produto_id ? "border-bom/50" : "border-line"}`}>
+    <section className={`rounded-[18px] border border-l-4 border-l-roxo bg-white ${i.produto_id ? "border-bom/50" : "border-line"}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-4 text-left">
         <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-roxo-claro/60 text-base">💡</span>
         <span className="min-w-0 flex-auto">

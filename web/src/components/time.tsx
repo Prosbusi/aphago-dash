@@ -114,7 +114,7 @@ export function RecadoBox({ recado, onFechar }: { recado: Recado; onFechar: () =
   if (!recado) return null;
   const cor = recado.tipo === "ok" ? "border-bom/30 text-bom" : recado.tipo === "aviso" ? "border-[#B45309]/30 text-[#8A5A00]" : "border-ruim/30 text-ruim";
   return (
-    <div role="status" className={`flex items-start justify-between gap-3 rounded-[14px] border bg-white px-5 py-3 text-sm ${cor}`}>
+    <div role="status" className={`flex items-start justify-between gap-3 rounded-[18px] border bg-white px-5 py-3 text-sm ${cor}`}>
       <span>{recado.texto}</span>
       <button type="button" onClick={onFechar} aria-label="Fechar recado" className="font-bold">×</button>
     </div>

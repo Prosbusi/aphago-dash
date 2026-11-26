@@ -9,13 +9,14 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Marca } from "./Logo";
 import { Icone } from "./Icone";
+import { Farolzinho } from "./Farolzinho";
 import type { CSSProperties } from "react";
 
 /** Cor de destaque por área: roxo na Aphago e no Geral, vinho na Abrasso. */
 export const ACCENT: Record<string, CSSProperties> = {
-  time: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
-  geral: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
-  aphago: { "--accent": "160 101 231", "--accent-claro": "217 195 245", "--accent-texto": "122 61 200", "--accent-escuro": "91 42 154" } as CSSProperties,
+  time: { "--accent": "124 92 224", "--accent-claro": "228 220 255", "--accent-texto": "91 63 196", "--accent-escuro": "69 48 154" } as CSSProperties,
+  geral: { "--accent": "124 92 224", "--accent-claro": "228 220 255", "--accent-texto": "91 63 196", "--accent-escuro": "69 48 154" } as CSSProperties,
+  aphago: { "--accent": "124 92 224", "--accent-claro": "228 220 255", "--accent-texto": "91 63 196", "--accent-escuro": "69 48 154" } as CSSProperties,
   abrasso: { "--accent": "157 34 53", "--accent-claro": "231 200 205", "--accent-texto": "157 34 53", "--accent-escuro": "118 24 39" } as CSSProperties,
 };
 
@@ -39,7 +40,7 @@ function lojaSalva(): StoreId {
   return "aphago";
 }
 
-const itemBase = "flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] no-underline";
+const itemBase = "flex min-h-9 w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] no-underline";
 
 function Item({ item, visivel, pathname }: { item: ItemMenu; visivel: (i: ItemMenu) => boolean; pathname: string }) {
   const filhos = item.filhos?.filter(visivel) ?? [];
@@ -80,7 +81,7 @@ function Item({ item, visivel, pathname }: { item: ItemMenu; visivel: (i: ItemMe
                 to={f.to!}
                 end={f.end}
                 className={({ isActive }) =>
-                  `flex min-h-8 items-center rounded-lg px-2.5 py-1.5 text-[13px] no-underline ${isActive ? "bg-roxo-claro/55 font-bold text-ink" : "font-semibold text-body hover:bg-soft"}`
+                  `flex min-h-8 items-center rounded-xl px-2.5 py-1.5 text-[13px] no-underline ${isActive ? "bg-roxo-claro/55 font-bold text-ink" : "font-semibold text-body hover:bg-soft"}`
                 }
               >
                 {f.label}
@@ -97,7 +98,7 @@ function Item({ item, visivel, pathname }: { item: ItemMenu; visivel: (i: ItemMe
     <NavLink
       to={item.to!}
       end={item.end}
-      className={({ isActive }) => `${itemBase} group ${isActive ? "bg-roxo-claro/55 font-bold text-ink" : "font-semibold text-body hover:bg-soft"}`}
+      className={({ isActive }) => `${itemBase} group ${isActive ? "bg-roxo-claro/70 font-extrabold text-ink" : "font-semibold text-body hover:bg-soft"}`}
     >
       {({ isActive }) => (
         <>
@@ -115,7 +116,7 @@ function Grupo({ grupo, visivel, pathname }: { grupo: GrupoMenu; visivel: (i: It
   if (!itens.length) return null;
   return (
     <div className="flex flex-col gap-0.5">
-      {grupo.titulo && <p className="m-0 mb-1 mt-4 px-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A867E]">{grupo.titulo}</p>}
+      {grupo.titulo && <p className="m-0 mb-1 mt-4 px-2.5 text-[11px] font-extrabold uppercase tracking-[0.09em] text-lavanda">{grupo.titulo}</p>}
       {itens.map((i) => (
         <Item key={i.label} item={i} visivel={visivel} pathname={pathname} />
       ))}
@@ -191,14 +192,14 @@ export function Layout() {
           </button>
         </div>
 
-        <div role="group" aria-label="Loja" className="mx-3 flex gap-1 rounded-[10px] border border-line bg-ground p-1">
+        <div role="group" aria-label="Loja" className="mx-3 flex gap-1 rounded-2xl border border-line bg-ground p-1">
           {LOJAS.map((l) => (
             <button
               key={l.id}
               type="button"
               onClick={() => trocarLoja(l.id)}
               aria-pressed={loja === l.id}
-              className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[7px] text-[13px] font-bold ${loja === l.id ? "bg-white text-ink shadow-[0_0_0_1px_#E4E0D8]" : "text-muted hover:text-body"}`}
+              className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl text-[13px] font-bold ${loja === l.id ? "bg-white text-ink shadow-[0_0_0_1px_#EFE5D3]" : "text-muted hover:text-body"}`}
             >
               <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: l.cor }} />
               {l.nome}
@@ -218,7 +219,7 @@ export function Layout() {
             <span
               title={session.user.email ?? ""}
               aria-hidden="true"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D6D1C7] bg-ground text-[12px] font-bold"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E6DAC4] bg-ground text-[12px] font-bold"
             >
               {inicial}
             </span>
@@ -249,16 +250,16 @@ export function Layout() {
           </span>
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-xs text-muted sm:inline" aria-live="polite">
-              {refresh.state === "running" ? "Buscando dados novos…" : refresh.state === "recent" ? "Atualizado há instantes" : refresh.state === "error" ? "Não deu para atualizar" : ago(last)}
+              {refresh.state === "running" ? "Iluminando os números…" : refresh.state === "recent" ? "Tudo fresquinho!" : refresh.state === "error" ? "Ops, o facho apagou. Tenta de novo?" : ago(last)}
             </span>
             <button
               type="button"
               onClick={refresh.run}
               disabled={refresh.state === "running"}
               title="Buscar agora os pedidos novos das lojas"
-              className="flex min-h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-body hover:bg-ground disabled:opacity-60"
+              className="flex min-h-9 items-center gap-1.5 rounded-xl border border-line bg-white px-3 text-[13px] font-semibold text-body hover:bg-ground disabled:opacity-60"
             >
-              <Icone nome="atualizar" tamanho={14} className={refresh.state === "running" ? "animate-spin" : ""} />
+              {refresh.state === "running" ? <Farolzinho tamanho={18} facho piscando /> : <Icone nome="atualizar" tamanho={14} />}
               Atualizar
             </button>
           </div>
@@ -269,7 +270,10 @@ export function Layout() {
           ) : primeira && primeira !== pathname ? (
             <Navigate to={primeira} replace />
           ) : (
-            <p className="py-16 text-center text-sm text-muted">Nenhuma tela liberada para você ainda. Fale com um administrador.</p>
+            <div className="flex flex-col items-center gap-3 py-16 text-center text-sm text-muted">
+              <Farolzinho tamanho={72} humor="dormindo" />
+              Nenhuma tela liberada para você ainda. Fale com um administrador.
+            </div>
           )}
         </main>
       </div>

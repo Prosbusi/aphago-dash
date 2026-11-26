@@ -90,7 +90,7 @@ function Conteudo({ orders, prev, start, end }: { orders: OrderRow[]; prev: Orde
         >
           <div className="mt-[18px] overflow-x-auto">
             <div className="min-w-[640px]">
-              <div className="flex h-[200px] items-end gap-1.5 border-b border-[#D6D1C7]">
+              <div className="flex h-[200px] items-end gap-1.5 border-b border-[#E6DAC4]">
                 {dias.map((d, i) => (
                   <div
                     key={d}

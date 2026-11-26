@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { pct } from "../lib/format";
+import { Farolzinho } from "./Farolzinho";
 
 export function Card({ title, extra, children, className = "" }: { title?: ReactNode; extra?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`min-w-0 rounded-[14px] border border-line bg-white px-6 py-[22px] ${className}`}>
+    <section className={`min-w-0 rounded-[18px] border border-line bg-white px-6 py-[22px] ${className}`}>
       {(title || extra) && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           {title && <h2 className="m-0 text-[17px] font-bold">{title}</h2>}
@@ -19,7 +20,7 @@ export function Kpi({ label, value, delta, sub, invert = false }: { label: strin
   const up = (delta ?? 0) >= 0;
   const good = invert ? !up : up;
   return (
-    <div className="rounded-[14px] border border-line bg-white px-[22px] py-5">
+    <div className="rounded-[18px] border border-line bg-white px-[22px] py-5">
       <div className="text-[13px] font-semibold text-muted">{label}</div>
       <div className="mt-2 text-[32px] font-extrabold tracking-tight">{value}</div>
       <div className="mt-1.5 text-[13px]">
@@ -47,20 +48,34 @@ export function GrupoTag({ grupo }: { grupo: string }) {
   return <span className="ml-1 text-[11px] font-semibold text-muted">{grupo}</span>;
 }
 
-export function Loading() {
-  return <div className="py-16 text-center text-sm text-muted">Carregando dados…</div>;
+export function Loading({ texto = "Iluminando os números…" }: { texto?: string }) {
+  return (
+    <div role="status" className="flex flex-col items-center gap-3 py-14 text-center text-sm font-semibold text-muted">
+      <Farolzinho tamanho={64} facho piscando humor="pensando" />
+      {texto}
+    </div>
+  );
 }
 
 export function ErrorBox({ message }: { message: string }) {
   return (
-    <div role="alert" className="rounded-[14px] border border-ruim/30 bg-white p-5 text-sm text-ruim">
-      Não foi possível carregar os dados: {message}
+    <div role="alert" className="flex items-center gap-4 rounded-[18px] border border-coral/50 bg-white p-5 text-sm">
+      <Farolzinho tamanho={52} humor="triste" />
+      <div>
+        <p className="m-0 font-bold text-ink">Ops, o facho apagou.</p>
+        <p className="m-0 mt-0.5 text-ruim">Não deu para carregar os dados: {message}</p>
+      </div>
     </div>
   );
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="py-8 text-center text-sm text-muted">{children}</p>;
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted">
+      <Farolzinho tamanho={44} humor="dormindo" />
+      <p className="m-0 max-w-md">{children}</p>
+    </div>
+  );
 }
 
 export function PageTitle({ title, sub, right }: { title: string; sub?: ReactNode; right?: ReactNode }) {
