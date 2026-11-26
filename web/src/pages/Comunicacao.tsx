@@ -1,6 +1,7 @@
 import { Navigate, useParams } from "react-router-dom";
 import { PageTitle } from "../components/ui";
 import { Farolzinho } from "../components/Farolzinho";
+import { GrupoVip } from "./comunicacao/GrupoVip";
 import { nomeLoja, useStoreParam } from "../lib/store";
 
 const CANAIS: Record<string, { titulo: string; texto: string }> = {
@@ -14,6 +15,7 @@ export function Comunicacao() {
   const { canal = "" } = useParams();
   const loja = useStoreParam();
   const c = CANAIS[canal];
+  if (canal === "vip") return <GrupoVip />;
   if (!c) return <Navigate to={`/${loja}/comunicacao/calendario`} replace />;
   return (
     <>
