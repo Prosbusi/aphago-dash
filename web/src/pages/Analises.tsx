@@ -117,7 +117,7 @@ function MapaRetorno({ d }: { d: Cat }) {
         <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Investimento por ROAS de cada família">
           {ticksY.map((v) => (
             <g key={v}>
-              <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="#EEEBE4" />
+              <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="#F7EFE0" />
               <text x={L - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill="#8C877D">{dec(v, 0)}x</text>
             </g>
           ))}
@@ -125,8 +125,8 @@ function MapaRetorno({ d }: { d: Cat }) {
           <text x={W - R} y={y(1) - 4} textAnchor="end" fontSize="10" fill="#B42318">1x (empate)</text>
           {geral > 0 && geral < maxY && (
             <>
-              <line x1={L} x2={W - R} y1={y(geral)} y2={y(geral)} stroke="#5E5B55" strokeDasharray="5 4" />
-              <text x={W - R} y={y(geral) - 4} textAnchor="end" fontSize="10" fill="#5E5B55">média {dec(geral, 1)}x</text>
+              <line x1={L} x2={W - R} y1={y(geral)} y2={y(geral)} stroke="#6B6385" strokeDasharray="5 4" />
+              <text x={W - R} y={y(geral) - 4} textAnchor="end" fontSize="10" fill="#6B6385">média {dec(geral, 1)}x</text>
             </>
           )}
           <text x={(W + L) / 2} y={H - 4} textAnchor="middle" fontSize="10" fill="#8C877D">investimento no Meta →</text>
@@ -138,7 +138,7 @@ function MapaRetorno({ d }: { d: Cat }) {
               <circle cx={x(p.gasto)} cy={y(p.r)} r={4 + Math.sqrt(p.receita / maxRec) * 14} fill={ACENTO} fillOpacity={0.55} stroke="#fff" strokeWidth={2} />
               <circle cx={x(p.gasto)} cy={y(p.r)} r={18} fill="transparent" />
               {rotulos.has(p.familia) && (
-                <text x={x(p.gasto)} y={y(p.r) - 8 - Math.sqrt(p.receita / maxRec) * 14} textAnchor="middle" fontSize="10" fontWeight="700" fill="#17171A">
+                <text x={x(p.gasto)} y={y(p.r) - 8 - Math.sqrt(p.receita / maxRec) * 14} textAnchor="middle" fontSize="10" fontWeight="700" fill="#2E2449">
                   {p.nome.length > 18 ? p.nome.slice(0, 17) + "…" : p.nome}
                 </text>
               )}
@@ -260,7 +260,7 @@ function Evolucao({ d }: { d: Cat }) {
           }}>
           {[0, 0.5, 1].map((t) => (
             <g key={t}>
-              <line x1={L} x2={W - R} y1={y(max * t)} y2={y(max * t)} stroke="#EEEBE4" />
+              <line x1={L} x2={W - R} y1={y(max * t)} y2={y(max * t)} stroke="#F7EFE0" />
               <text x={L - 6} y={y(max * t) + 4} textAnchor="end" fontSize="10" fill="#8C877D">{money(max * t)}</text>
             </g>
           ))}

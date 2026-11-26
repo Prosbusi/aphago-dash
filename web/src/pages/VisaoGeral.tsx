@@ -175,7 +175,7 @@ function Conteudo({ data, start, end, store, mk, mkAnt, est, estAnt }: { data: N
         >
           <div className="mt-[18px] overflow-x-auto">
             <div className="min-w-[640px]">
-              <div className="flex h-[200px] items-end gap-1.5 border-b border-[#D6D1C7]">
+              <div className="flex h-[200px] items-end gap-1.5 border-b border-[#E6DAC4]">
                 {dias.map((d) => (
                   <div
                     key={d.dia}

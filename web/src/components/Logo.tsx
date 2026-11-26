@@ -1,7 +1,17 @@
-import logo from "../assets/pharol-logo.png";
-import logoBranco from "../assets/pharol-logo-branco.png";
+import { Farolzinho } from "./Farolzinho";
 
-/** Marca do Pharol: farol com o facho amarelo + "pharol". `branco` para fundos escuros. */
+/** Marca do Pharol: o Farolzinho + "pharol". `branco` para fundos escuros. */
 export function Marca({ altura = 30, branco = false }: { altura?: number; branco?: boolean }) {
-  return <img src={branco ? logoBranco : logo} alt="Pharol" style={{ height: altura, width: "auto" }} className="block" />;
+  return (
+    <span className="inline-flex items-center gap-1.5" aria-label="Pharol" role="img">
+      <Farolzinho tamanho={Math.round(altura * 1.25)} />
+      <span
+        aria-hidden="true"
+        className={`font-black lowercase tracking-tight ${branco ? "text-white" : "text-ink"}`}
+        style={{ fontSize: Math.round(altura * 0.85), lineHeight: 1 }}
+      >
+        pharol
+      </span>
+    </span>
+  );
 }

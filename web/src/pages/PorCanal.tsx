@@ -195,7 +195,7 @@ function Conteudo({ d, modelo, aba, setAba }: { d: Dados; modelo: (typeof MODELO
     <>
       <section aria-label="Grupos de canal" className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4">
         {grupos.map((g) => (
-          <div key={g.grupo} className="rounded-[14px] border border-line bg-white px-5 py-4">
+          <div key={g.grupo} className="rounded-[18px] border border-line bg-white px-5 py-4">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-muted">
               <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ background: COR[g.grupo] }} />{g.grupo}
             </div>

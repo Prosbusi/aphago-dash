@@ -207,7 +207,7 @@ function Visao({ d, irPara }: { d: Painel; irPara: (a: Aba) => void }) {
         >
           <div className="mt-[18px] overflow-x-auto">
             <div className="min-w-[640px]">
-              <div className="flex h-[180px] items-end gap-1.5 border-b border-[#D6D1C7]">
+              <div className="flex h-[180px] items-end gap-1.5 border-b border-[#E6DAC4]">
                 {d.dias.map((x) => {
                   const tot = somaDia(x);
                   const partes = tiposNoGrafico.filter((t) => (x.tipos[t.id] ?? 0) > 0);

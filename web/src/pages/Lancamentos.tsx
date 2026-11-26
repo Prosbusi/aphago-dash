@@ -107,7 +107,7 @@ export function Lancamentos() {
       {form && <Formulario store={store} inicial={form} onCancelar={() => setForm(null)} onSalvo={salvo} />}
 
       {!form && (sug.data?.length ?? 0) > 0 && (
-        <section aria-label="Sugestões" className="rounded-[14px] border border-roxo/30 bg-roxo-claro/25 px-5 py-4">
+        <section aria-label="Sugestões" className="rounded-[18px] border border-roxo/30 bg-roxo-claro/25 px-5 py-4">
           <p className="m-0 text-sm font-semibold">Campanhas novas no padrão da esteira que ainda não são lançamentos</p>
           <ul className="m-0 mt-3 flex list-none flex-wrap gap-2 p-0">
             {sug.data!.map((s) => (
@@ -418,7 +418,7 @@ function Grafico({ p, temProduto }: { p: Placar; temProduto: boolean }) {
     >
       <div className="mt-[18px] overflow-x-auto">
         <div style={{ minWidth: `${Math.max(480, dias.length * 22)}px` }}>
-          <div className="flex h-[180px] items-end gap-1.5 border-b border-[#D6D1C7]">
+          <div className="flex h-[180px] items-end gap-1.5 border-b border-[#E6DAC4]">
             {dias.map((d, i) => (
               <div key={d.dia} className="flex h-full flex-1 items-end justify-center gap-px" title={`D${i ? `+${i}` : "0"} (${ddmm(d.dia)}): vendas ${money(venda(d))} · investimento ${money(gasto(d))}`}>
                 <div className="w-1/2 max-w-[14px] rounded-t bg-roxo" style={{ height: `${Math.round((venda(d) / max) * 170)}px` }} />

@@ -1,5 +1,6 @@
 import { Navigate, useParams } from "react-router-dom";
 import { PageTitle } from "../components/ui";
+import { Farolzinho } from "../components/Farolzinho";
 import { nomeLoja, useStoreParam } from "../lib/store";
 
 const CANAIS: Record<string, { titulo: string; texto: string }> = {
@@ -17,8 +18,9 @@ export function Comunicacao() {
   return (
     <>
       <PageTitle title={c.titulo} sub={`${nomeLoja(loja)} · Comunicação`} />
-      <section className="rounded-[14px] border border-dashed border-[#C9C3B7] bg-white px-6 py-10 text-center">
-        <p className="m-0 text-sm font-bold">Em construção</p>
+      <section className="flex flex-col items-center rounded-[24px] border-2 border-dashed border-[#DCCDB3] bg-white px-6 py-10 text-center">
+        <Farolzinho tamanho={80} humor="pensando" className="farol-balanco" />
+        <p className="m-0 mt-3 text-base font-extrabold">O Farolzinho está construindo esta tela</p>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted">{c.texto}</p>
       </section>
     </>

@@ -146,7 +146,7 @@ function Conteudo({ d }: { d: Dados }) {
         >
           <div className="mt-[18px] overflow-x-auto">
             <div className="min-w-[640px]">
-              <div className="flex h-[180px] items-end gap-1.5 border-b border-[#D6D1C7]">
+              <div className="flex h-[180px] items-end gap-1.5 border-b border-[#E6DAC4]">
                 {d.dias.map((x) => {
                   const tot = x.meta + x.google + x.outros;
                   return (

@@ -67,7 +67,7 @@ export function Tarefas() {
           <section aria-label="Números por pessoa" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
             {numeros.map((p) => (
               <button key={p.id} type="button" onClick={() => setFiltro(p.id)} aria-pressed={filtro === p.id}
-                className={`rounded-[14px] border bg-white px-5 py-4 text-left ${filtro === p.id ? "border-roxo" : "border-line hover:border-roxo/50"}`}>
+                className={`rounded-[18px] border bg-white px-5 py-4 text-left ${filtro === p.id ? "border-roxo" : "border-line hover:border-roxo/50"}`}>
                 <div className="text-[13px] font-semibold text-muted">{p.nome}</div>
                 <div className="mt-1 text-[28px] font-extrabold tracking-tight">{num(p.pendentes)} <span className="text-sm font-semibold text-muted">pendentes</span></div>
                 <div className="mt-1 text-xs text-muted">{num(p.concluidas)} concluídas{p.media != null && ` · ${dec(p.media < 48 ? p.media : p.media / 24, 1)} ${p.media < 48 ? "h" : "dias"} em média`}</div>

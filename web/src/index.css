@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-body { margin: 0; background: #F6F4EF; }
-a { color: rgb(var(--accent-texto, 122 61 200)); }
-a:hover { color: rgb(var(--accent-escuro, 91 42 154)); }
+body { margin: 0; background: #FFFBF2; }
+a { color: rgb(var(--accent-texto, 91 63 196)); }
+a:hover { color: rgb(var(--accent-escuro, 69 48 154)); }
+
+/* Farolzinho: facho que pisca enquanto carrega e um balanço leve */
+@keyframes farol-facho { 0%, 100% { opacity: .15; } 50% { opacity: .75; } }
+.farol-facho { animation: farol-facho 1.4s ease-in-out infinite; }
+@keyframes farol-balanco { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+.farol-balanco { animation: farol-balanco 2.8s ease-in-out infinite; transform-origin: 50% 100%; }
+@media (prefers-reduced-motion: reduce) { .farol-facho, .farol-balanco { animation: none; } }

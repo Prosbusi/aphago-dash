@@ -89,7 +89,7 @@ function Conteudo({ d, ano, anoAnt }: { d: Dados; ano: string; anoAnt: string })
   return (
     <>
       {!temHistorico && (
-        <div role="status" className="rounded-[14px] border border-line bg-white p-5 text-sm text-body">
+        <div role="status" className="rounded-[18px] border border-line bg-white p-5 text-sm text-body">
           O histórico de {anoAnt} ainda está sendo carregado da Shopify (mês a mês). As colunas de {anoAnt} se completam sozinhas nas próximas horas.
         </div>
       )}

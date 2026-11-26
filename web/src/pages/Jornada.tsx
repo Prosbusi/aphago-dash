@@ -79,7 +79,7 @@ function Conteudo({ orders }: { orders: NonNullable<ReturnType<typeof useDashDat
                 {cam.map((c) => (
                   <li key={`${c.abre}-${c.fecha}`} className="flex items-center gap-2.5 border-t border-soft py-2.5 text-sm">
                     <span className="font-semibold">{c.abre}</span>
-                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E5B55" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6385" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                     <span className="flex-auto font-semibold">{c.fecha}</span>
                     <span className="font-bold">{num(c.n)}</span>
                   </li>
@@ -102,7 +102,7 @@ function Conteudo({ orders }: { orders: NonNullable<ReturnType<typeof useDashDat
             </div>
           </Card>
 
-          <section aria-label="Próxima fase" className="rounded-[14px] border border-dashed border-[#C9C3B7] px-[22px] py-[18px] text-[13px] text-body">
+          <section aria-label="Próxima fase" className="rounded-[18px] border border-dashed border-[#DCCDB3] px-[22px] py-[18px] text-[13px] text-body">
             <strong className="text-ink">Fase 3:</strong> lembretes do WhatsApp e e-mails enviados entram na jornada, mesmo quando o cliente não clica no link.
           </section>
         </div>
@@ -113,7 +113,7 @@ function Conteudo({ orders }: { orders: NonNullable<ReturnType<typeof useDashDat
 
 function Resumo({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (
-    <div className="rounded-[14px] border border-line bg-white px-[22px] py-5">
+    <div className="rounded-[18px] border border-line bg-white px-[22px] py-5">
       <div className="text-[13px] font-semibold text-muted">{label}</div>
       <div className="mt-2 text-[32px] font-extrabold tracking-tight">{valor}</div>
       <div className="mt-1.5 text-[13px] text-muted">{sub}</div>

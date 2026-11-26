@@ -92,7 +92,7 @@ export function Inicio() {
         <>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {d.lojas.map((l) => (
-              <section key={l.store} aria-labelledby={`loja-${l.store}`} style={ACCENT[l.store]} className="rounded-[22px] border border-line bg-white p-4 sm:p-6">
+              <section key={l.store} aria-labelledby={`loja-${l.store}`} style={ACCENT[l.store]} className="rounded-[24px] border border-line bg-white p-4 sm:p-6">
                 <h2 id={`loja-${l.store}`} className="m-0 mb-4 flex items-center gap-2 text-xl font-extrabold">
                   <span aria-hidden="true" className="h-3 w-3 rounded-full bg-roxo" />
                   {l.nome}
@@ -101,7 +101,7 @@ export function Inicio() {
               </section>
             ))}
           </div>
-          <section aria-labelledby="total" className="rounded-[22px] border border-line bg-white p-4 sm:p-6">
+          <section aria-labelledby="total" className="rounded-[24px] border border-line bg-white p-4 sm:p-6">
             <h2 id="total" className="m-0 text-xl font-extrabold">Resumo (total)</h2>
             <p className="mb-4 mt-1 text-sm text-muted">{d.lojas.map((l) => l.nome).join(" + ")} · pedidos pagos</p>
             <Metricas a={somar(d.lojas.map((l) => l.atual))} p={somar(d.lojas.map((l) => l.anterior))} tomLucro="bom" />

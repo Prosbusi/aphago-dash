@@ -135,7 +135,7 @@ function CartaoProduto({ p, modelos, colecoes, onTrocar, onRecarregar, onEditar,
   };
 
   return (
-    <section className={`rounded-[14px] border border-line bg-white ${p.cancelado ? "opacity-60" : ""}`}>
+    <section className={`rounded-[18px] border border-line bg-white ${p.cancelado ? "opacity-60" : ""}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-left">
         <span className={`rounded-md px-2 py-1 font-mono text-[13px] font-bold ${p.codigo ? "bg-ink text-white" : "border border-dashed border-line text-muted"}`}>{p.codigo ?? "código ao salvar"}</span>
         <span className="min-w-0 flex-auto">
