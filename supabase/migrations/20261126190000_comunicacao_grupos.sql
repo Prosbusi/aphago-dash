@@ -285,5 +285,3 @@ revoke execute on function public.comunicacao_grupos_lista(text, text), public.c
 grant execute on function public.comunicacao_grupos_lista(text, text), public.comunicacao_grupo_salvar(text, text, text, text, boolean) to authenticated, service_role;
 grant execute on function public.comunicacao_do_dia(text, text, date), public.comunicacao_marcar(text, uuid, text, text) to service_role;
 
--- refaz os links já gravados no formato novo
-update public.comunicacao_envios set url = url;
