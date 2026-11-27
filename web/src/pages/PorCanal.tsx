@@ -6,6 +6,8 @@ import { supabase } from "../lib/supabase";
 import { dec, ddmm, diaMes, money, money2, pct } from "../lib/format";
 import { Card, Empty, ErrorBox, GrupoTag, Loading, PageTitle, ShareBar } from "../components/ui";
 import { PeriodPicker } from "../components/PeriodPicker";
+import { Link } from "react-router-dom";
+import { useUtmPainel } from "../lib/utmPainel";
 
 // Atribuição por canal e por botão: cada pedido divide 100% do valor entre os canais do caminho.
 // O cálculo é feito no banco (tabela atribuicao); a tela só lê a função atribuicao_painel.
@@ -238,6 +240,30 @@ function Conteudo({ d, modelo, aba, setAba }: { d: Dados; modelo: (typeof MODELO
 
 function TabelaCanais({ d, modelo }: { d: Dados; modelo: (typeof MODELOS)[number] }) {
   const [aberto, setAberto] = useState<string | null>(null);
+  const [campAberta, setCampAberta] = useState<string | null>(null);
+  const store = useStoreParam();
+  const { period } = usePeriod();
+  const utm = useUtmPainel(store, period.start, period.end, modelo.id, aberto !== null);
+  // conteúdos (utm_content) de cada canal|campanha, com o mesmo crédito da linha da campanha
+  const conteudos = useMemo(() => {
+    const m = new Map<string, { conteudo: string | null; valor: number; pedidos: number; novos: number; titulo: string | null }[]>();
+    for (const l of utm.data ?? []) {
+      const k = `${l.canal}|${l.campanha}`;
+      const lista = m.get(k) ?? [];
+      const x = lista.find((y) => y.conteudo === l.conteudo);
+      if (x) { x.valor += l.valor; x.pedidos += l.pedidos; x.novos += l.novos; x.titulo ??= l.mensagem?.titulo ?? null; }
+      else lista.push({ conteudo: l.conteudo, valor: l.valor, pedidos: l.pedidos, novos: l.novos, titulo: l.mensagem?.titulo ?? null });
+      m.set(k, lista);
+    }
+    for (const lista of m.values()) lista.sort((a, b) => b.valor - a.valor);
+    return m;
+  }, [utm.data]);
+  const linkUtms = (canal: string, campanha?: string) => {
+    const p = new URLSearchParams({ canal });
+    if (campanha !== undefined) { p.set("campanha", campanha); p.set("por", "campanha,conteudo,termo"); }
+    if (modelo.id !== "linear") p.set("modelo", modelo.id);
+    return `/${store}/utms?${p}`;
+  };
   const total = Number(d.total.valor) || 1;
   const canais = d.canais.filter((c) => Number(c.valor) > 0 || Number(c.valor_ultimo) > 0);
   const maxShare = Math.max(...canais.map((c) => (Number(c.valor) / total) * 100), 1);
@@ -245,7 +271,7 @@ function TabelaCanais({ d, modelo }: { d: Dados; modelo: (typeof MODELOS)[number
   const th = "p-2 text-right font-semibold";
 
   return (
-    <Card title={`Todos os canais · ${modelo.nome}`} extra="Clique no canal para ver as campanhas">
+    <Card title={`Todos os canais · ${modelo.nome}`} extra="Clique no canal para ver as campanhas e, na campanha, os conteúdos (utm_content)">
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[980px] border-collapse text-sm">
           <thead>
@@ -298,10 +324,20 @@ function TabelaCanais({ d, modelo }: { d: Dados; modelo: (typeof MODELOS)[number
                   </tr>
                   {open && camps.map((x) => {
                     const v = Number(x.valor);
+                    const k = `${c.canal}|${x.campanha}`;
+                    const conts = conteudos.get(k) ?? [];
+                    const temConteudo = conts.some((y) => y.conteudo);
+                    const campOpen = campAberta === k;
                     return (
-                      <tr key={`${c.canal}|${x.campanha}`} className="bg-soft/50 text-[13px]">
+                      <Fragment key={k}>
+                      <tr className="bg-soft/50 text-[13px]">
                         <td className="py-2 pl-6 pr-2 text-body" colSpan={2}>
-                          {x.campanha || "(sem campanha)"}
+                          {temConteudo ? (
+                            <button type="button" aria-expanded={campOpen} onClick={() => setCampAberta(campOpen ? null : k)} className="text-left hover:underline">
+                              <span aria-hidden="true" className="mr-1 inline-block w-3 text-muted">{campOpen ? "▾" : "▸"}</span>
+                              {x.campanha || "(sem campanha)"}
+                            </button>
+                          ) : (x.campanha || "(sem campanha)")}
                           {!x.ligada && c.gasto ? <span className="ml-2 text-[11px] text-muted">sem gasto ligado</span> : null}
                         </td>
                         <td className="p-2 text-right">{ped(x.pedidos)}</td>
@@ -312,8 +348,39 @@ function TabelaCanais({ d, modelo }: { d: Dados; modelo: (typeof MODELOS)[number
                         <td className="p-2 text-right text-body">{ped(Number(x.novos) || 0)}</td>
                         {!ehUltimo && <td />}
                       </tr>
+                      {campOpen && conts.map((y) => (
+                        <tr key={`${k}|${y.conteudo}`} className="bg-soft/25 text-[12.5px]">
+                          <td className="py-1.5 pl-12 pr-2" colSpan={2}>
+                            <span className={y.conteudo ? "text-body" : "text-muted"}>{y.conteudo ?? "(sem utm_content)"}</span>
+                            {y.titulo && <span className="ml-2 text-roxo-texto">{y.titulo}</span>}
+                          </td>
+                          <td className="p-2 text-right">{ped(y.pedidos)}</td>
+                          <td className="p-2 text-right font-semibold">{money(y.valor)}</td>
+                          <td />
+                          <td />
+                          <td className="p-2 text-right">{y.pedidos ? money2(y.valor / y.pedidos) : "—"}</td>
+                          <td className="p-2 text-right text-body">{ped(y.novos)}</td>
+                          {!ehUltimo && <td />}
+                        </tr>
+                      ))}
+                      {campOpen && (
+                        <tr className="bg-soft/25 text-[12.5px]">
+                          <td className="py-1.5 pl-12" colSpan={ehUltimo ? 8 : 9}>
+                            <Link to={linkUtms(c.canal, x.campanha)} className="font-semibold text-roxo-texto underline">Ver esta campanha na tela UTMs</Link>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
+                  {open && (
+                    <tr className="bg-soft/50 text-[13px]">
+                      <td className="py-2 pl-6" colSpan={ehUltimo ? 8 : 9}>
+                        {aberto && !utm.data && !utm.error && <span className="mr-3 text-muted">Carregando os conteúdos…</span>}
+                        <Link to={linkUtms(c.canal)} className="font-semibold text-roxo-texto underline">Ver todas as UTMs de {c.canal}</Link>
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               );
             })}

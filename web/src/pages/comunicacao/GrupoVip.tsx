@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useDataVersion } from "../../lib/data";
 import { nomeLoja, useStoreParam } from "../../lib/store";
-import { money, num } from "../../lib/format";
+import { dec, money, num } from "../../lib/format";
 import { addDays, todaySP } from "../../lib/period";
 import { Card, Empty, ErrorBox, Kpi, Loading, PageTitle } from "../../components/ui";
 import { Farolzinho } from "../../components/Farolzinho";
@@ -81,6 +81,17 @@ function useEnvios(store: string, inicio: string, fim: string, tick: number) {
   return st;
 }
 
+type Resumo = { pedidos: number; vendas: number; atribuido: number; atribuido_pedidos: number; cupom_pedidos: number; cupom_vendas: number };
+function useResumo(store: string, inicio: string, fim: string, tick: number) {
+  const v = useDataVersion();
+  const [r, setR] = useState<Resumo | null>(null);
+  useEffect(() => {
+    setR(null);
+    supabase.rpc("comunicacao_resumo", { p_store: store, p_canal: CANAL, p_inicio: inicio, p_fim: fim }).then(({ data }) => setR((data as Resumo) ?? null));
+  }, [store, inicio, fim, v, tick]);
+  return r;
+}
+
 function useGrupos(store: string, tick: number) {
   const [g, setG] = useState<Grupo[]>([]);
   useEffect(() => {
@@ -99,6 +110,7 @@ export function GrupoVip() {
   const fimBusca = addDays(hoje, 7) > fimMes ? addDays(hoje, 7) : fimMes;
   const { data, error } = useEnvios(store, inicio, fimBusca, tick);
   const grupos = useGrupos(store, tick);
+  const resumo = useResumo(store, inicio, fimMes, tick);
   const nomeGrupo = (c: string) => grupos.find((g) => g.codigo === c)?.nome ?? c;
   const [vendoGrupos, setVendoGrupos] = useState(false);
   const [editando, setEditando] = useState<Rascunho | null>(null);
@@ -123,7 +135,6 @@ export function GrupoVip() {
 
   const rascunhos = doMes.filter((e) => e.status === "rascunho");
   const enviados = doMes.filter((e) => e.status === "enviado");
-  const tot = enviados.reduce((a, e) => ({ pedidos: a.pedidos + e.pedidos, vendas: a.vendas + e.vendas, cupom: a.cupom + e.cupom_pedidos }), { pedidos: 0, vendas: 0, cupom: 0 });
 
   async function salvar(p: Record<string, unknown>) {
     const { error } = await supabase.rpc("comunicacao_salvar", { p_store: store, p_canal: CANAL, p });
@@ -133,6 +144,7 @@ export function GrupoVip() {
   }
 
   async function aprovarTodos() {
+    if (!window.confirm(`Aprovar ${rascunhos.length} ${rascunhos.length === 1 ? "mensagem" : "mensagens"}? Com as instruções novas, o Grok envia as aprovadas no horário marcado.`)) return;
     for (const e of rascunhos) await supabase.rpc("comunicacao_salvar", { p_store: store, p_canal: CANAL, p: { id: e.id, status: "aprovado" } });
     setAviso(`${rascunhos.length} ${rascunhos.length === 1 ? "mensagem aprovada" : "mensagens aprovadas"}.`);
     recarregar();
@@ -206,9 +218,9 @@ export function GrupoVip() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Mensagens no mês" value={num(doMes.filter((e) => e.status !== "cancelado").length)} sub={`${num(enviados.length)} enviadas · ${num(rascunhos.length)} em rascunho`} />
-        <Kpi label="Pedidos pelo link" value={num(tot.pedidos)} sub="das mensagens enviadas" />
-        <Kpi label="Vendas pelo link" value={money(tot.vendas)} sub={enviados.length ? `${money(tot.vendas / enviados.length)} por mensagem` : undefined} />
-        <Kpi label="Pedidos com o cupom" value={num(tot.cupom)} sub="nos 7 dias depois do envio" />
+        <Kpi label="Pedidos que passaram pelo VIP" value={resumo ? num(resumo.pedidos) : "…"} sub={resumo ? `${money(Number(resumo.vendas))} em vendas desses pedidos` : undefined} />
+        <Kpi label="Atribuído ao VIP" value={resumo ? money(Number(resumo.atribuido)) : "…"} sub={resumo ? `${dec(Number(resumo.atribuido_pedidos), 1)} pedidos · linear, igual ao Por canal` : undefined} />
+        <Kpi label="Pedidos com cupom do VIP" value={resumo ? num(resumo.cupom_pedidos) : "…"} sub={resumo ? `${money(Number(resumo.cupom_vendas))} em vendas` : undefined} />
       </div>
 
       {error && <ErrorBox message={error} />}
@@ -217,8 +229,13 @@ export function GrupoVip() {
         <Card><Empty>Nenhuma mensagem neste mês. Crie uma nova ou importe o planejamento.</Empty></Card>
       )}
 
+      {data && porDia.length > 0 && (
+        <p className="m-0 -mb-2 text-xs text-muted">
+          Os totais acima são por data do pedido e não contam o mesmo pedido duas vezes. Em cada mensagem, "pedidos" são os que passaram pelo link dela; quem clicou em duas mensagens aparece nas duas.
+        </p>
+      )}
       {porDia.map(([dia, envios]) => (
-        <section key={dia} className="flex flex-col gap-3">
+        <section key={dia} className="flex flex-col gap-2">
           <h2 className="m-0 text-sm font-extrabold capitalize text-muted">{dia === hoje ? `Hoje · ${tituloDia(dia)}` : tituloDia(dia)}</h2>
           {envios.map((e) => (
             <Linha key={e.id} e={e} hoje={hoje} nomeGrupo={nomeGrupo}
@@ -249,60 +266,81 @@ function Linha({ e, hoje, nomeGrupo, onEditar, onStatus, onApagar, onCopiar }: {
   e: Envio; hoje: string; nomeGrupo: (c: string) => string; onEditar: () => void; onStatus: (s: Status) => void; onApagar: () => void;
   onCopiar: (p: Envio["pecas"][number]) => void;
 }) {
+  const [aberta, setAberta] = useState(false);
   const s = STATUS[e.status];
   const passou = diaSP(e.enviar_em) <= hoje;
   const primeira = e.pecas[0];
+  const resumo = e.titulo || e.texto.split("\n").find((l) => l.trim())?.replace(/[*_~]/g, "").trim() || "Sem texto";
   return (
-    <article className="grid gap-4 rounded-[18px] border border-line bg-white p-5 md:grid-cols-[92px_minmax(0,1fr)_220px]">
-      <div className="flex flex-row items-center gap-3 md:flex-col md:items-start">
-        <span className="text-2xl font-black tracking-tight">{horaSP(e.enviar_em)}</span>
-        <span className={`rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold ${s.cls}`}>{s.nome}</span>
-      </div>
-      <div className="min-w-0">
-        <Bolha texto={primeira?.texto ?? textoFinal(e.texto, e.link)} imagem={e.imagem_url} />
-        {e.pecas.some((p) => p.grupo) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="font-semibold text-muted">Grupos:</span>
-            {e.pecas.map((p) => (
-              <button key={p.grupo} type="button" title="Copiar o texto deste grupo" onClick={() => onCopiar(p)}
-                className={`rounded-full border px-2.5 py-0.5 font-bold ${p.enviado || e.status === "enviado" ? "border-bom/30 bg-[#E3F4EA] text-bom" : "border-line bg-white text-body hover:bg-soft"}`}>
-                {(p.enviado || e.status === "enviado") && "✓ "}{p.nome}
-              </button>
-            ))}
+    <article className="rounded-[18px] border border-line bg-white">
+      <button type="button" aria-expanded={aberta} onClick={() => setAberta((v) => !v)}
+        className="grid w-full grid-cols-[18px_56px_minmax(0,1fr)] items-center gap-3 px-4 py-3 text-left hover:bg-ground/60 md:grid-cols-[18px_56px_minmax(0,1fr)_auto_auto]">
+        <span aria-hidden="true" className={`text-muted transition-transform ${aberta ? "rotate-90" : ""}`}>▸</span>
+        <span className="text-lg font-black tracking-tight">{horaSP(e.enviar_em)}</span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-bold">{resumo}</span>
+          <span className="block truncate text-xs text-muted">
+            {e.utm_content}{e.cupom ? ` · ${e.cupom}` : ""}
+          </span>
+        </span>
+        <span className={`hidden rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold md:inline ${s.cls}`}>{s.nome}</span>
+        <span className="col-span-3 text-sm md:col-span-1 md:min-w-[150px] md:text-right">
+          {e.status === "enviado" ? (
+            <><strong>{num(e.pedidos)}</strong> {e.pedidos === 1 ? "pedido" : "pedidos"} · <strong>{money(e.vendas)}</strong></>
+          ) : (
+            <span className={`rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold md:hidden ${s.cls}`}>{s.nome}</span>
+          )}
+        </span>
+      </button>
+      {aberta && (
+        <div className="grid gap-4 border-t border-line p-5 md:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="min-w-0">
+            <Bolha texto={primeira?.texto ?? textoFinal(e.texto, e.link)} imagem={e.imagem_url} />
+            {e.pecas.some((p) => p.grupo) && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="font-semibold text-muted">Grupos:</span>
+                {e.pecas.map((p) => (
+                  <button key={p.grupo} type="button" title="Copiar o texto deste grupo" onClick={() => onCopiar(p)}
+                    className={`rounded-full border px-2.5 py-0.5 font-bold ${p.enviado || e.status === "enviado" ? "border-bom/30 bg-[#E3F4EA] text-bom" : "border-line bg-white text-body hover:bg-soft"}`}>
+                    {(p.enviado || e.status === "enviado") && "✓ "}{p.nome}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mb-0 mt-2 text-xs text-muted">
+              {e.campanha && <>Campanha <strong className="text-body">{e.campanha}</strong> · </>}
+              utm_content <code className="rounded bg-soft px-1">{e.utm_content}</code>
+              {e.status === "enviado" && e.enviado_em && <> · enviada às {horaSP(e.enviado_em)}{e.atualizado_por === "grok" ? " pelo Grok" : ""}</>}
+            </p>
+            {e.status === "erro" && e.envio_obs && <p className="mb-0 mt-1 text-xs font-semibold text-ruim">Motivo: {e.envio_obs}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {e.status !== "enviado" && <button type="button" className={btnSec} onClick={onEditar}>Editar</button>}
+              {e.status === "rascunho" && <button type="button" className={btnPrim} onClick={() => onStatus("aprovado")}>Aprovar</button>}
+              {(e.status === "aprovado" || e.status === "erro") && <button type="button" className={btnSec} onClick={() => onStatus("rascunho")}>Voltar para rascunho</button>}
+              {(e.status === "aprovado" || e.status === "erro") && passou && <button type="button" className={btnSec} onClick={() => onStatus("enviado")}>Marcar como enviada</button>}
+              {!e.pecas.some((p) => p.grupo) && primeira && <button type="button" className={btnSec} onClick={() => onCopiar(primeira)}>Copiar</button>}
+              {e.status !== "enviado" && <button type="button" className="min-h-10 rounded-lg px-3 text-sm font-semibold text-ruim hover:bg-[#FFE9E9]" onClick={onApagar}>Apagar</button>}
+            </div>
           </div>
-        )}
-        <p className="mb-0 mt-2 text-xs text-muted">
-          {e.campanha && <>Campanha <strong className="text-body">{e.campanha}</strong> · </>}
-          utm_content <code className="rounded bg-soft px-1">{e.utm_content}</code>
-          {e.cupom && <> · cupom <strong className="text-body">{e.cupom}</strong></>}
-          {e.status === "enviado" && e.enviado_em && <> · enviada às {horaSP(e.enviado_em)}{e.atualizado_por === "grok" ? " pelo Grok" : ""}</>}
-        </p>
-        {e.status === "erro" && e.envio_obs && <p className="mb-0 mt-1 text-xs font-semibold text-ruim">Motivo: {e.envio_obs}</p>}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {e.status !== "enviado" && <button type="button" className={btnSec} onClick={onEditar}>Editar</button>}
-          {e.status === "rascunho" && <button type="button" className={btnPrim} onClick={() => onStatus("aprovado")}>Aprovar</button>}
-          {(e.status === "aprovado" || e.status === "erro") && <button type="button" className={btnSec} onClick={() => onStatus("rascunho")}>Voltar para rascunho</button>}
-          {(e.status === "aprovado" || e.status === "erro") && passou && <button type="button" className={btnSec} onClick={() => onStatus("enviado")}>Marcar como enviada</button>}
-          {!e.pecas.some((p) => p.grupo) && primeira && <button type="button" className={btnSec} onClick={() => onCopiar(primeira)}>Copiar</button>}
-          {e.status !== "enviado" && <button type="button" className="min-h-10 rounded-lg px-3 text-sm font-semibold text-ruim hover:bg-[#FFE9E9]" onClick={onApagar}>Apagar</button>}
+          <div className="rounded-2xl bg-ground p-4 text-sm">
+            {e.status === "enviado" ? (
+              <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2">
+                <dt className="text-xs font-semibold text-muted">Pedidos</dt><dd className="m-0 text-right font-extrabold">{num(e.pedidos)}</dd>
+                <dt className="text-xs font-semibold text-muted">Vendas</dt><dd className="m-0 text-right font-extrabold">{money(e.vendas)}</dd>
+                <dt className="text-xs font-semibold text-muted">Último clique</dt><dd className="m-0 text-right font-bold">{num(e.ultimo_clique)}</dd>
+                <dt className="text-xs font-semibold text-muted">Clientes novos</dt><dd className="m-0 text-right font-bold">{num(e.novos)}</dd>
+                {e.cupom && <><dt className="text-xs font-semibold text-muted">Com o cupom</dt><dd className="m-0 text-right font-bold">{num(e.cupom_pedidos)} · {money(e.cupom_vendas)}</dd></>}
+                {e.por_grupo.map((g) => (
+                  <Fragment key={g.grupo}><dt className="text-xs text-muted">{nomeGrupo(g.grupo)}</dt><dd className="m-0 text-right text-xs font-semibold">{num(g.pedidos)} · {money(g.vendas)}</dd></Fragment>
+                ))}
+              </dl>
+            ) : (
+              <p className="m-0 text-xs text-muted">O resultado aparece aqui depois do envio: pedidos e vendas que passaram pelo link e uso do cupom.</p>
+            )}
+            {e.status === "enviado" && <p className="mb-0 mt-3 text-[11px] leading-snug text-muted">Pedidos que passaram pelo link desta mensagem, com o valor cheio do pedido.</p>}
+          </div>
         </div>
-      </div>
-      <div className="rounded-2xl bg-ground p-4 text-sm">
-        {e.status === "enviado" ? (
-          <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2">
-            <dt className="text-xs font-semibold text-muted">Pedidos</dt><dd className="m-0 text-right font-extrabold">{num(e.pedidos)}</dd>
-            <dt className="text-xs font-semibold text-muted">Vendas</dt><dd className="m-0 text-right font-extrabold">{money(e.vendas)}</dd>
-            <dt className="text-xs font-semibold text-muted">Último clique</dt><dd className="m-0 text-right font-bold">{num(e.ultimo_clique)}</dd>
-            <dt className="text-xs font-semibold text-muted">Clientes novos</dt><dd className="m-0 text-right font-bold">{num(e.novos)}</dd>
-            {e.cupom && <><dt className="text-xs font-semibold text-muted">Com o cupom</dt><dd className="m-0 text-right font-bold">{num(e.cupom_pedidos)} · {money(e.cupom_vendas)}</dd></>}
-            {e.por_grupo.map((g) => (
-              <Fragment key={g.grupo}><dt className="text-xs text-muted">{nomeGrupo(g.grupo)}</dt><dd className="m-0 text-right text-xs font-semibold">{num(g.pedidos)} · {money(g.vendas)}</dd></Fragment>
-            ))}
-          </dl>
-        ) : (
-          <p className="m-0 text-xs text-muted">O resultado aparece aqui depois do envio: pedidos e vendas que passaram pelo link e uso do cupom.</p>
-        )}
-      </div>
+      )}
     </article>
   );
 }
