@@ -25,6 +25,7 @@ import { Tarefas } from "./pages/time/Tarefas";
 import { Produtos as ProdutosCriacao } from "./pages/time/Produtos";
 import { Ideias } from "./pages/time/Ideias";
 import { GrokConfig } from "./pages/time/Grok";
+import { Utms } from "./pages/Utms";
 import { Comunicacao } from "./pages/Comunicacao";
 
 /** Tela inicial: o administrador cai no Início; os demais, no Resumo (ou na primeira tela liberada). */
@@ -62,6 +63,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path=":store" element={<LojaValida><VisaoGeral /></LojaValida>} />
               <Route path=":store/projecao" element={<LojaValida><Projecao /></LojaValida>} />
               <Route path=":store/canais" element={<LojaValida><PorCanal /></LojaValida>} />
+              <Route path=":store/utms" element={<LojaValida><Utms /></LojaValida>} />
               <Route path=":store/produtos" element={<LojaValida><Produtos /></LojaValida>} />
               <Route path=":store/jornada" element={<LojaValida><Jornada /></LojaValida>} />
               <Route path=":store/retorno" element={<LojaValida><Retorno /></LojaValida>} />

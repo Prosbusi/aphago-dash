@@ -38,6 +38,7 @@ export function montarMenu(loja: StoreId, pendentes: number): { principal: Grupo
             filhos: [
               { label: "Projeção", icone: "vendas", to: `${L}/projecao`, chave: `${loja}:projecao` },
               { label: "Por canal", icone: "vendas", to: `${L}/canais`, chave: `${loja}:canais` },
+              { label: "UTMs", icone: "vendas", to: `${L}/utms`, chave: `${loja}:utms` },
               { label: "Jornada", icone: "vendas", to: `${L}/jornada`, chave: `${loja}:jornada` },
               { label: "Retorno", icone: "vendas", to: `${L}/retorno`, chave: `${loja}:retorno` },
             ],

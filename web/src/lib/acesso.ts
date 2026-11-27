@@ -13,6 +13,7 @@ export const telasLoja = (id: string): Tela[] => [
   { chave: `${id}:visao`, area: id, nome: "Visão geral", rota: `/${id}`, end: true },
   { chave: `${id}:projecao`, area: id, nome: "Projeção", rota: `/${id}/projecao` },
   { chave: `${id}:canais`, area: id, nome: "Por canal", rota: `/${id}/canais` },
+  { chave: `${id}:utms`, area: id, nome: "UTMs", rota: `/${id}/utms` },
   { chave: `${id}:produtos`, area: id, nome: "Produtos", rota: `/${id}/produtos` },
   { chave: `${id}:jornada`, area: id, nome: "Jornada", rota: `/${id}/jornada` },
   { chave: `${id}:retorno`, area: id, nome: "Retorno", rota: `/${id}/retorno` },
