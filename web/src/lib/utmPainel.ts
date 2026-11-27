@@ -13,7 +13,7 @@ export const MODELOS: { id: Modelo; nome: string }[] = [
 
 export type LinhaUtm = {
   canal: string; grupo: string; source: string | null; medium: string | null; campanha: string; conteudo: string | null; termo: string | null;
-  valor: number; pedidos: number; novos: number; passaram: number;
+  valor: number; pedidos: number; novos: number; passaram: number; cliques: number;
   mensagem: { titulo: string; enviar_em: string; canal: string } | null;
 };
 
@@ -32,7 +32,7 @@ export function useUtmPainel(store: string, inicio: string, fim: string, modelo:
     supabase.rpc("utm_painel", { p_store: store, p_inicio: inicio, p_fim: fim, p_modelo: modelo }).then(({ data, error }) => {
       if (!vivo) return;
       if (error) { setSt({ chave, error: error.message }); return; }
-      const linhas = ((data ?? []) as LinhaUtm[]).map((l) => ({ ...l, valor: Number(l.valor), pedidos: Number(l.pedidos), novos: Number(l.novos), passaram: Number(l.passaram) }));
+      const linhas = ((data ?? []) as LinhaUtm[]).map((l) => ({ ...l, valor: Number(l.valor), pedidos: Number(l.pedidos), novos: Number(l.novos), passaram: Number(l.passaram), cliques: Number(l.cliques) || 0 }));
       cache.set(chave, linhas);
       setSt({ chave, data: linhas });
     });

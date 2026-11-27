@@ -24,7 +24,7 @@ const vazio = (d: Dim) => (d === "campanha" ? "(sem campanha)" : d === "canal" ?
 
 type Agrupada = {
   chave: string; valores: Partial<Record<Dim, string | null>>; grupo: string;
-  valor: number; pedidos: number; novos: number; passaram: number; linhas: number;
+  valor: number; pedidos: number; novos: number; passaram: number; cliques: number; linhas: number;
   mensagem: LinhaUtm["mensagem"];
 };
 
@@ -40,7 +40,7 @@ export function Utms() {
     const d = params.get("por")?.split(",").filter((x): x is Dim => DIMS.some((y) => y.id === x));
     return d?.length ? d : campanha !== null ? ["campanha", "conteudo"] : PADRAO;
   });
-  const [ordem, setOrdem] = useState<"valor" | "pedidos" | "passaram">("valor");
+  const [ordem, setOrdem] = useState<"valor" | "pedidos" | "passaram" | "cliques">("valor");
   const [limite, setLimite] = useState(150);
   const { data, error } = useUtmPainel(store, period.start, period.end, modelo);
 
@@ -70,14 +70,15 @@ export function Utms() {
     for (const l of filtradas) {
       const valores = Object.fromEntries(dims.map((d) => [d, l[d]])) as Agrupada["valores"];
       const chave = dims.map((d) => l[d] ?? "∅").join("|");
-      const a = m.get(chave) ?? { chave, valores, grupo: l.grupo, valor: 0, pedidos: 0, novos: 0, passaram: 0, linhas: 0, mensagem: null };
-      a.valor += l.valor; a.pedidos += l.pedidos; a.novos += l.novos; a.passaram += l.passaram; a.linhas += 1;
+      const a = m.get(chave) ?? { chave, valores, grupo: l.grupo, valor: 0, pedidos: 0, novos: 0, passaram: 0, cliques: 0, linhas: 0, mensagem: null };
+      a.valor += l.valor; a.pedidos += l.pedidos; a.novos += l.novos; a.passaram += l.passaram; a.cliques += l.cliques; a.linhas += 1;
       if (!a.mensagem && l.mensagem && dims.includes("conteudo")) a.mensagem = l.mensagem;
       m.set(chave, a);
     }
     return [...m.values()].sort((a, b) => b[ordem] - a[ordem]);
   }, [filtradas, dims, ordem]);
-  const tot = linhas.reduce((a, l) => ({ valor: a.valor + l.valor, pedidos: a.pedidos + l.pedidos, novos: a.novos + l.novos }), { valor: 0, pedidos: 0, novos: 0 });
+  const tot = linhas.reduce((a, l) => ({ valor: a.valor + l.valor, pedidos: a.pedidos + l.pedidos, novos: a.novos + l.novos, cliques: a.cliques + l.cliques }), { valor: 0, pedidos: 0, novos: 0, cliques: 0 });
+  const conv = (p: number, c: number) => (c > 0 ? pct(Math.min(p / c, 1) * 100) : "—");
 
   const th = "p-2 text-right font-semibold";
   const ordBtn = (k: typeof ordem, nome: string) => (
@@ -123,15 +124,17 @@ export function Utms() {
 
       {error && <ErrorBox message={error} />}
       {!data && !error && <Loading texto="Somando as UTMs do período…" />}
-      {data && !linhas.length && <Card><Empty>Nenhuma UTM com venda {busca || canal ? "nesse filtro" : "no período"}.</Empty></Card>}
+      {data && !linhas.length && <Card><Empty>Nenhuma UTM com clique ou venda {busca || canal ? "nesse filtro" : "no período"}.</Empty></Card>}
 
       {data && linhas.length > 0 && (
         <Card title={`${linhas.length} ${linhas.length === 1 ? "linha" : "linhas"}`} extra={`${money(tot.valor)} · ${pct(totalGeral ? (tot.valor / totalGeral) * 100 : 0)} do total`}>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[880px] border-collapse text-sm">
+            <table className="w-full min-w-[1040px] border-collapse text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
                   {dims.map((d) => <th key={d} scope="col" className="py-2 pr-3 font-semibold">{DIMS.find((x) => x.id === d)!.nome}</th>)}
+                  <th scope="col" className={th} title="Visitas que chegaram com esta UTM, registradas pelo Pharol">{ordBtn("cliques", "Cliques")}</th>
+                  <th scope="col" className={th} title="Pedidos ÷ cliques">Conversão</th>
                   <th scope="col" className={th}>{ordBtn("pedidos", "Pedidos")}</th>
                   <th scope="col" className={th}>{ordBtn("valor", "Faturamento")}</th>
                   <th scope="col" className={th}>Ticket</th>
@@ -156,6 +159,8 @@ export function Utms() {
                         )}
                       </td>
                     ))}
+                    <td className="p-2 text-right text-body">{l.cliques ? l.cliques.toLocaleString("pt-BR") : "—"}</td>
+                    <td className="p-2 text-right text-body">{conv(l.pedidos, l.cliques)}</td>
                     <td className="p-2 text-right">{ped(l.pedidos)}</td>
                     <td className="p-2 text-right font-semibold">{money(l.valor)}</td>
                     <td className="p-2 text-right">{l.pedidos ? money2(l.valor / l.pedidos) : "—"}</td>
@@ -167,6 +172,8 @@ export function Utms() {
               <tfoot>
                 <tr className="border-t-2 border-line font-bold">
                   <td className="py-2 pr-3" colSpan={dims.length}>Total</td>
+                  <td className="p-2 text-right">{tot.cliques.toLocaleString("pt-BR")}</td>
+                  <td className="p-2 text-right">{conv(tot.pedidos, tot.cliques)}</td>
                   <td className="p-2 text-right">{ped(tot.pedidos)}</td>
                   <td className="p-2 text-right">{money(tot.valor)}</td>
                   <td className="p-2 text-right">{tot.pedidos ? money2(tot.valor / tot.pedidos) : "—"}</td>
@@ -184,6 +191,7 @@ export function Utms() {
           <p className="mb-0 mt-3 text-xs leading-relaxed text-muted">
             O crédito é o mesmo do Por canal: cada pedido divide o valor entre os canais do caminho, e dentro do canal entre as UTMs que usou. Por isso a soma de um canal aqui bate com o Por canal.
             {detalhe && " \"Passaram\" conta todo pedido que teve uma visita com a UTM, com crédito cheio (um pedido pode aparecer em mais de uma linha)."}
+            {" "}Cliques são as chegadas ao site com a UTM registradas pelo Pharol (desde 18/11; quem bloqueia rastreamento não entra), e conversão = pedidos ÷ cliques.
             {" "}Pedidos com uma casa decimal: um pedido pode ser dividido entre UTMs. O filtro de horário do Por canal não vale aqui.
           </p>
         </Card>
