@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useDataVersion } from "../../lib/data";
 import { nomeLoja, useStoreParam } from "../../lib/store";
-import { dec, money, num } from "../../lib/format";
+import { dec, money, num, pct } from "../../lib/format";
 import { addDays, todaySP } from "../../lib/period";
 import { Card, Empty, ErrorBox, Kpi, Loading, PageTitle } from "../../components/ui";
 import { Farolzinho } from "../../components/Farolzinho";
@@ -16,7 +16,7 @@ type Envio = {
   extras: { link_original?: string; enviados?: string[] } | null;
   pecas: { grupo: string | null; nome: string | null; link: string; texto: string; enviado: boolean }[];
   por_grupo: { grupo: string; pedidos: number; vendas: number }[];
-  pedidos: number; vendas: number; ultimo_clique: number; novos: number; cupom_pedidos: number; cupom_vendas: number;
+  pedidos: number; vendas: number; ultimo_clique: number; novos: number; cupom_pedidos: number; cupom_vendas: number; cliques: number;
 };
 type Grupo = { codigo: string; nome: string; ativo: boolean };
 type Rascunho = {
@@ -81,7 +81,7 @@ function useEnvios(store: string, inicio: string, fim: string, tick: number) {
   return st;
 }
 
-type Resumo = { pedidos: number; vendas: number; atribuido: number; atribuido_pedidos: number; cupom_pedidos: number; cupom_vendas: number };
+type Resumo = { cliques: number; pedidos: number; vendas: number; atribuido: number; atribuido_pedidos: number; cupom_pedidos: number; cupom_vendas: number };
 function useResumo(store: string, inicio: string, fim: string, tick: number) {
   const v = useDataVersion();
   const [r, setR] = useState<Resumo | null>(null);
@@ -218,7 +218,7 @@ export function GrupoVip() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Mensagens no mês" value={num(doMes.filter((e) => e.status !== "cancelado").length)} sub={`${num(enviados.length)} enviadas · ${num(rascunhos.length)} em rascunho`} />
-        <Kpi label="Pedidos que passaram pelo VIP" value={resumo ? num(resumo.pedidos) : "…"} sub={resumo ? `${money(Number(resumo.vendas))} em vendas desses pedidos` : undefined} />
+        <Kpi label="Pedidos que passaram pelo VIP" value={resumo ? num(resumo.pedidos) : "…"} sub={resumo ? `${money(Number(resumo.vendas))} · ${num(resumo.cliques)} cliques${resumo.cliques ? ` · conversão ${pct(Math.min(resumo.pedidos / resumo.cliques, 1) * 100)}` : ""}` : undefined} />
         <Kpi label="Atribuído ao VIP" value={resumo ? money(Number(resumo.atribuido)) : "…"} sub={resumo ? `${dec(Number(resumo.atribuido_pedidos), 1)} pedidos · linear, igual ao Por canal` : undefined} />
         <Kpi label="Pedidos com cupom do VIP" value={resumo ? num(resumo.cupom_pedidos) : "…"} sub={resumo ? `${money(Number(resumo.cupom_vendas))} em vendas` : undefined} />
       </div>
@@ -284,9 +284,9 @@ function Linha({ e, hoje, nomeGrupo, onEditar, onStatus, onApagar, onCopiar }: {
           </span>
         </span>
         <span className={`hidden rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold md:inline ${s.cls}`}>{s.nome}</span>
-        <span className="col-span-3 text-sm md:col-span-1 md:min-w-[150px] md:text-right">
+        <span className="col-span-3 text-sm md:col-span-1 md:min-w-[230px] md:text-right">
           {e.status === "enviado" ? (
-            <><strong>{num(e.pedidos)}</strong> {e.pedidos === 1 ? "pedido" : "pedidos"} · <strong>{money(e.vendas)}</strong></>
+            <><strong>{num(e.cliques)}</strong> {e.cliques === 1 ? "clique" : "cliques"} · <strong>{num(e.pedidos)}</strong> {e.pedidos === 1 ? "pedido" : "pedidos"} · <strong>{money(e.vendas)}</strong></>
           ) : (
             <span className={`rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold md:hidden ${s.cls}`}>{s.nome}</span>
           )}
@@ -325,7 +325,9 @@ function Linha({ e, hoje, nomeGrupo, onEditar, onStatus, onApagar, onCopiar }: {
           <div className="rounded-2xl bg-ground p-4 text-sm">
             {e.status === "enviado" ? (
               <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-2">
+                <dt className="text-xs font-semibold text-muted">Cliques</dt><dd className="m-0 text-right font-extrabold">{num(e.cliques)}</dd>
                 <dt className="text-xs font-semibold text-muted">Pedidos</dt><dd className="m-0 text-right font-extrabold">{num(e.pedidos)}</dd>
+                <dt className="text-xs font-semibold text-muted">Conversão</dt><dd className="m-0 text-right font-bold">{e.cliques ? pct(Math.min(e.pedidos / e.cliques, 1) * 100) : "—"}</dd>
                 <dt className="text-xs font-semibold text-muted">Vendas</dt><dd className="m-0 text-right font-extrabold">{money(e.vendas)}</dd>
                 <dt className="text-xs font-semibold text-muted">Último clique</dt><dd className="m-0 text-right font-bold">{num(e.ultimo_clique)}</dd>
                 <dt className="text-xs font-semibold text-muted">Clientes novos</dt><dd className="m-0 text-right font-bold">{num(e.novos)}</dd>
@@ -337,7 +339,7 @@ function Linha({ e, hoje, nomeGrupo, onEditar, onStatus, onApagar, onCopiar }: {
             ) : (
               <p className="m-0 text-xs text-muted">O resultado aparece aqui depois do envio: pedidos e vendas que passaram pelo link e uso do cupom.</p>
             )}
-            {e.status === "enviado" && <p className="mb-0 mt-3 text-[11px] leading-snug text-muted">Pedidos que passaram pelo link desta mensagem, com o valor cheio do pedido.</p>}
+            {e.status === "enviado" && <p className="mb-0 mt-3 text-[11px] leading-snug text-muted">Cliques registrados pelo Pharol (desde 18/11). Pedidos que passaram pelo link desta mensagem, com o valor cheio do pedido; pedidos de teste de valor zero ficam fora.</p>}
           </div>
         </div>
       )}
