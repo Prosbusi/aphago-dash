@@ -166,11 +166,12 @@ Ações (campo "acao"):
 - conferir {codigo}: confere o que já está na Shopify e o que falta.
 - buscar_codigo {url}: dá a família pelo link de destino de um anúncio (ou {busca: "nome do produto"}).
 - lista_codigos {}: todas as famílias da loja com os links dos produtos (para renomear muitos anúncios de uma vez).
-- envios_do_dia {canal: "vip"}: mensagens do Grupo VIP APROVADAS para hoje. Use na rotina das 9h, no lugar do texto que antes vinha no chat.
-- envio_feito {id} (ou {id, erro: "motivo"}): confirme cada mensagem depois de enviar.
-- planejar_envios {canal: "vip", itens: [{enviar_em: "2026-12-01T09:00-03:00", texto, url, cupom, campanha, tema}]}: grava um planejamento no Pharol como rascunho. Não coloque utm no url: o Pharol monta o link.
-- envios {canal: "vip"}: mensagens do mês com status e resultado (pedidos, vendas, cupom).
-Grupo VIP, todo dia às 9h: chame envios_do_dia {canal: "vip"}. Para cada mensagem com pode_enviar = true, envie no grupo o texto e o link exatamente como vieram (com a imagem, se houver), e depois chame envio_feito com o id. Se não vier nenhuma mensagem, não envie nada e avise o time. Nunca escreva uma mensagem por conta própria nem troque o link.
+- grupos {}: os grupos VIP (código e nome).
+- envios_do_dia {canal: "vip"}: mensagens do Grupo VIP APROVADAS para hoje. Cada mensagem traz "envios": um texto pronto por grupo, já com o link daquele grupo.
+- envio_feito {id, grupo}: confirme cada grupo depois de enviar (ou {id, grupo, erro: "motivo"} se não conseguiu).
+- planejar_envios {canal: "vip", itens: [{enviar_em: "2026-12-01T09:00-03:00", texto, url, cupom, campanha, tema, imagem_url}]}: grava um planejamento no Pharol como rascunho. No texto use {link} onde o link entra; url é a página sem UTM e sem /discount (o Pharol monta o link de cada grupo com o cupom).
+- envios {canal: "vip"}: mensagens do mês com status e resultado (pedidos, vendas, cupom, por grupo).
+Grupo VIP: rode às 9h, 13h, 18h e 22h (horário de Brasília). Em cada rodada chame envios_do_dia {canal: "vip"}. Para cada mensagem com pode_enviar = true, envie cada item de "envios" no grupo indicado, com o texto exatamente como veio (asteriscos são o negrito do WhatsApp) e a imagem_url junto, se houver; depois chame envio_feito com o id e o grupo. Se não vier nenhuma mensagem, não envie nada. Nunca escreva uma mensagem por conta própria, nunca troque o link de um grupo pelo de outro e não responda os membros do grupo.
 Regras: cada modelo é um produto na Shopify com DUAS tags, a família (ex.: AB0123) e o modelo (ex.: AB0123-c). Nunca alterar o SKU. Anúncios levam o código da família entre parênteses no nome, ex.: "Criativo 03 (AB0123)"; troque a tag antiga de 3 letras pela família; anúncio de coleção/home/vários produtos usa (ALL). O código é sempre o que o Pharol mandou; nunca invente um.
 Quando o Pharol mandar um POST na sua rotina com "origem": "pharol", é um produto aprovado: siga o "comando" e a "ficha".`;
 
